@@ -9,6 +9,8 @@
   --accbg: rgba(59, 130, 246, 0.1);
 }
 
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -33,36 +35,6 @@ h2 { font-size: 16px; margin: 0 0 12px; color: var(--mut); font-weight: 600; }
   border-radius: 12px;
   margin-bottom: 20px;
   border: 1px solid var(--line);
-}
-
-.historial-chat {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 15px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.chat-msg {
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  max-width: 90%;
-  line-height: 1.4;
-}
-
-.chat-msg.user {
-  background: var(--bg);
-  color: var(--ink);
-  align-self: flex-end;
-  border: 1px solid var(--line);
-}
-
-.chat-msg.assistant {
-  background: var(--accbg);
-  color: var(--acc);
-  align-self: flex-start;
 }
 
 textarea {
@@ -96,10 +68,54 @@ button {
 
 button:hover { opacity: 0.9; }
 
+.ia-botones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-secundario {
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink) !important;
+}
+
 .ia-output {
   margin-top: 10px;
   font-size: 14px;
+  color: var(--acc);
 }
+
+.chat-historial {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.chat-msg {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-msg.user {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  align-self: flex-end;
+}
+
+.chat-msg.assistant {
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--line);
+  align-self: flex-start;
+}
+
+.chat-msg b { color: var(--acc); margin-right: 4px; }
 
 /* --- LAYOUT Y TARJETAS --- */
 .layout-grid {
@@ -152,17 +168,18 @@ input, select {
 
 input:focus, select:focus { border-color: var(--acc); }
 
-.conv {
-  font-size: 12px;
-  color: var(--mut);
-  margin-top: 4px;
-  margin-bottom: 8px;
-}
-
 .two {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.conv-hint {
+  font-size: 12px;
+  color: var(--mut);
+  margin-top: 4px;
+  padding-left: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- RESUMEN --- */
@@ -354,23 +371,28 @@ input:focus, select:focus { border-color: var(--acc); }
   font-size: 16px;
 }
 
-/* --- BOTONES DE ACCIÓN --- */
+/* --- ACCIONES Y BOTÓN GUARDAR --- */
 .acciones {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
   margin-top: 10px;
 }
 
-.btn-sec {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--ink);
-  flex: 1;
+@media (max-width: 480px) {
+  .acciones { grid-template-columns: 1fr; }
 }
 
-.btn-sec:hover { background: var(--accbg); border-color: var(--acc); }
+.btn-accion {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink) !important;
+  padding: 12px !important;
+  font-size: 13px !important;
+}
 
-/* --- BOTÓN GUARDAR --- */
+.btn-accion:hover { border-color: var(--acc) !important; }
+
 .btn-guardar {
   width: 100%;
   background: #10B981;
@@ -385,3 +407,10 @@ input:focus, select:focus { border-color: var(--acc); }
 }
 
 .btn-guardar:hover { background: #059669; }
+
+/* --- IMPRESIÓN (PDF) --- */
+@media print {
+  body { background: white; color: black; }
+  .asistente-card, .acciones, .btn-guardar { display: none; }
+  .card { border-color: #ccc; box-shadow: none; }
+}
