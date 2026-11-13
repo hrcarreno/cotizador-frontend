@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import './App.css';
 
 const MODELOS = [
@@ -97,7 +97,7 @@ function App() {
   
   let mejores = [];
   if (financiar && dif > 0) {
-    const difArs = difEnPesos; // Usamos la diferencia en pesos para comparar con los topes
+    const difArs = difEnPesos;
     const opciones = [];
     lineasValidas.forEach((l, i) => {
       l.r.forEach(r => {
@@ -212,6 +212,10 @@ function App() {
       setIaOutput("Fallo: " + e.message);
       setIaHistorial(prev => [...prev, { role: "assistant", content: "Fallo: " + e.message }]);
     }
+  };
+
+  const guardarEnCRM = () => {
+    alert(`Guardando en CRM:\nCliente: ${nombreCliente}\nTeléfono: ${telefonoCliente}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
   };
 
   const generarMensaje = () => {
