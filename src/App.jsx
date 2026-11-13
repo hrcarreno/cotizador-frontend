@@ -192,7 +192,6 @@ export default function App() {
   const resetFormulario = () => {
     setModeloIdx(ESTADO_INICIAL.modeloIdx);
     setPatenta(ESTADO_INICIAL.patenta);
-    // El tc NO se resetea para mantener el valor de la BD
     setAplicarBonif(ESTADO_INICIAL.aplicarBonif);
     setBonifMonto(ESTADO_INICIAL.bonifMonto);
     setAntPesos(ESTADO_INICIAL.antPesos);
@@ -300,7 +299,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clave: "dolar_agencia", valor: tc })
       });
-      alert("Dólar guardado correctamente. Los vendedores verán este valor al recargar la página.");
+      alert("Dólar guardado correctamente.");
     } catch (e) {
       alert("Error guardando el dólar");
     }
@@ -423,7 +422,6 @@ export default function App() {
                 {aplicarBonif && (
                   <>
                     <label>Monto bonif. ({dm.moneda})</label>
-                    {/* AQUÍ ESTÁ EL ARREGLO: Cambiado a type="text" para que no salte el cursor */}
                     <input 
                       type="text" 
                       value={bonifMonto === 0 ? "" : bonifMonto} 
@@ -433,9 +431,8 @@ export default function App() {
                       }} 
                       placeholder={`Ej: ${dm.bonif}`}
                     />
-                    {bonifEfectiva > 0 && (
-                      <div className="codigo-disfrazado">Código: {cod(bonifEfectiva)}</div>
-                    )}
+                    {/* AQUÍ ESTÁ EL ARREGLO: Usa el código del modelo por defecto, no el input */}
+                    <div className="codigo-disfrazado">Código: {cod(dm.bonif)}</div>
                   </>
                 )}
               </div>
@@ -528,74 +525,3 @@ export default function App() {
 
                 <label>Plazo</label>
                 <div className="chips">
-                  {lineaSel.plazos.map(r => (
-                    <button
-                      key={r[0]}
-                      className={plazoFinal === r[0] ? "chip active" : "chip"}
-                      onClick={() => setPlazo(r[0])}
-                    >
-                      {r[0]}
-                    </button>
-                  ))}
-                </div>
-
-                {resumenFin && (
-                  <div className="detalle-financiacion">
-                    <h2 style={{ marginTop: '15px' }}>Detalle de la Opción</h2>
-                    <div className="row"><span>Línea:</span> <span>{resumenFin.linea}</span></div>
-                    <div className="row"><span>Plazo:</span> <span>{resumenFin.plazo} meses</span></div>
-                    <div className="row"><span>A financiar:</span> <span>{f(resumenFin.aFinanciar)}</span></div>
-                    <div className="row mut"><span>Gasto de otorgamiento:</span> <span>{f(resumenFin.gasto)}</span></div>
-                    <div className="row"><span>Cuota inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
-                    <div className="row mut"><span>Última cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
-                    <div className="row mut"><span>Total de cuotas:</span> <span>{f(resumenFin.totalCuotas)}</span></div>
-                    {resumenFin.tope && <div className="row mut"><span>Tope:</span> <span>{f(resumenFin.tope)}</span></div>}
-                  </div>
-                )}
-
-                <h2 style={{ marginTop: '20px' }}>Mejores opciones</h2>
-                <label>Qué prioriza el cliente</label>
-                <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-                  <option value="cuota">Cuota más baja</option>
-                  <option value="inicial">Poner menos al inicio</option>
-                  <option value="costo">Menor costo total</option>
-                </select>
-
-                <div className="lista-opciones">
-                  {mejores.length === 0 && (
-                    <div className="opcion-card">
-                      <div className="opcion-info">
-                        <b>Sin opciones disponibles</b>
-                        <span>La diferencia supera los topes o no hay líneas válidas.</span>
-                      </div>
-                    </div>
-                  )}
-                  {mejores.map((opt, idx) => (
-                    <div
-                      key={idx}
-                      className={`opcion-card ${opt.l.nombre === lineaSel.nombre && opt.r[0] === plazoFinal ? 'selected' : ''}`}
-                      onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}
-                    >
-                      <div className="opcion-info">
-                        <b>{opt.l.nombre}</b>
-                        <span>{opt.r[0]} cuotas</span>
-                      </div>
-                      <div className="opcion-cuota">{f(opt.cuota)}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="acciones">
-            <button className="btn-accion" onClick={() => navigator.clipboard.writeText("Cotización BYD")}>Copiar mensaje</button>
-            <button className="btn-accion" onClick={() => window.open("https://wa.me/", "_blank")}>Enviar WhatsApp</button>
-            <button className="btn-accion" onClick={() => window.print()}>Descargar PDF</button>
-          </div>
-          <button className="btn-guardar" onClick={guardarEnCRM}>Guardar Cotización en CRM</button>
-        </div>
-      </div>
-    </div>
-  );
-}
