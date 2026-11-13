@@ -36,28 +36,60 @@ const cod = (n) => {
   return "FC" + Math.floor(n / 1000000) + "AG" + String(Math.floor((n % 1000000) / 1000)).padStart(3, "0") + "HC" + String(n % 1000).padStart(3, "0");
 };
 
+// Cálculo francés con IVA 21% sobre intereses, corregido
 function frances(mo, tna, n) {
   const i = tna / 1200;
   const pura = i ? (mo * i) / (1 - Math.pow(1 + i, -n)) : mo / n;
-  let d = mo, sum = 0, first = 0, last = 0;
+  let saldo = mo, sum = 0, first = 0, last = 0;
   for (let k = 1; k <= n; k++) {
-    const it = d * i;
-    let c = pura + it * 0.21;
-    if (k === n) { c = d + d * i * 0.21; }
-    if (k === 1) first = c;
-    last = c;
-    sum += c;
-    d -= pura - it;
-    if (d < 0) d = 0;
+    const interes = saldo * i;
+    const iva = interes * 0.21;
+    let cuota = pura + iva;
+    if (k === n) cuota = saldo + iva; // última: saldo total + IVA del interés
+    if (k === 1) first = cuota;
+    last = cuota;
+    sum += cuota;
+    saldo -= (pura - interes); // amortización de capital
+    if (saldo < 0.01) saldo = 0;
   }
   return { first, last, sum };
+}
+
+// Matcheo de modelo mucho más estricto
+function matchearModelo(busq) {
+  const q = busq.toLowerCase().trim();
+
+  const version = q.includes("gs") ? "gs" : q.includes("gl") ? "gl" : null;
+  const familia =
+    q.includes("dolphin mini") ? "Dolphin Mini" :
+    q.includes("dolphin") ? "Dolphin Mini" :
+    q.includes("yuan pro") ? "Yuan Pro" :
+    q.includes("yuan") ? "Yuan Pro" :
+    q.includes("atto 2") ? "Atto 2" :
+    q.includes("atto") ? "Atto 2" :
+    q.includes("song pro") ? "Song Pro" :
+    q.includes("song") ? "Song Pro" :
+    q.includes("seal u") ? "Seal U" :
+    q.includes("seal 5") ? "Seal 5" :
+    q.includes("seal") ? "Seal 5" :
+    q.includes("shark") ? "SHARK" :
+    q.includes("ti7") ? "TI7" :
+    null;
+
+  if (!familia) return -1;
+
+  return MODELOS.findIndex(m => {
+    if (!m.nombre.includes(familia)) return false;
+    if (!version) return true;
+    return m.nombre.toLowerCase().includes(version);
+  });
 }
 
 function App() {
   const [modeloIdx, setModeloIdx] = useState(0);
   const [patenta, setPatenta] = useState("con");
   const [tc, setTc] = useState(1450);
-  
+
   const [aplicarBonif, setAplicarBonif] = useState(false);
   const [bonifMonto, setBonifMonto] = useState(0);
   const [antPesos, setAntPesos] = useState(0);
@@ -82,22 +114,31 @@ function App() {
   const nf = esUsd ? u : f;
 
   const bonifEfectiva = aplicarBonif ? (bonifMonto > 0 ? Math.min(bonifMonto, dm.precio) : dm.bonif) : 0;
-  
   const precioBase = dm.precio - bonifEfectiva;
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
-  
-  const totalEnMoneda = total;
-  const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / (tc || 1))) : (antPesos + (antUsd * tc));
-  const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / (tc || 1)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
-  const dif = totalEnMoneda - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
-  const difEnPesos = esUsd ? dif * tc : dif;
+
+  // Anticipo expresado en la moneda del auto
+  const anticipoEnMoneda = esUsd
+    ? antUsd + (antPesos / (tc || 1))
+    : antPesos + (antUsd * (tc || 1));
+
+  // Usado expresado en la moneda del auto
+  const usadoEnMoneda = esUsd
+    ? (monedaUsado === "usd" ? tasacion : tasacion / (tc || 1))
+    : (monedaUsado === "usd" ? tasacion * (tc || 1) : tasacion);
+
+  const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
+
+  // Anticipo real en pesos (para gastos de otorgamiento y opciones)
+  const anticipoArs = esUsd ? anticipoEnMoneda * (tc || 1) : anticipoEnMoneda;
 
   const lineasValidas = LINEAS.filter(l => !l.aplica || l.aplica.some(a => dm.nombre.includes(a)));
-  
+
+  // Cálculo de mejores opciones (con validaciones para no romper)
   let mejores = [];
   if (financiar && dif > 0) {
-    const difArs = difEnPesos;
+    const difArs = esUsd ? dif * (tc || 1) : dif;
     const opciones = [];
     lineasValidas.forEach((l, i) => {
       l.r.forEach(r => {
@@ -107,32 +148,37 @@ function App() {
         const fr = frances(difArs, tna, r[0]);
         const tope = r[3] ? r[3] : Infinity;
         if (difArs <= tope) {
-          opciones.push({ l, i, r, cuota: fr.first, gast, pon: anticipoEnMoneda + gast, costo: fr.sum - difArs + gast });
+          opciones.push({
+            l, i, r,
+            cuota: fr.first,
+            gast,
+            pon: anticipoArs + gast,
+            costo: fr.sum - difArs + gast
+          });
         }
       });
     });
     if (prioridad === "cuota") opciones.sort((a, b) => a.cuota - b.cuota);
     else if (prioridad === "inicial") opciones.sort((a, b) => a.pon - b.pon);
     else opciones.sort((a, b) => a.costo - b.costo);
-    
-    mejores = opciones.slice(0, 10);
+    mejores = opciones;
   }
 
   const lineaSel = lineasValidas[lineaIdx] || lineasValidas[0];
-  const plazoData = lineaSel.r.find(r => r[0] === plazo) || lineaSel.r[0];
-  
+  const plazoData = lineaSel?.r.find(r => r[0] === plazo) || lineaSel?.r[0];
+
   let resumenFin = null;
-  if (financiar && dif > 0) {
-    const difArs = difEnPesos;
+  if (financiar && dif > 0 && lineaSel && plazoData) {
+    const difArs = esUsd ? dif * (tc || 1) : dif;
     const tna = plazoData[1];
     const quebranto = plazoData[2] * 1.21;
     const gasto = difArs * (quebranto / 100);
     const fr = frances(difArs, tna, plazo);
     resumenFin = {
       linea: lineaSel.n,
-      plazo: plazo,
+      plazo,
       aFinanciar: difArs,
-      gasto: gasto,
+      gasto,
       cuota: fr.first,
       ultimaCuota: fr.last,
       totalCuotas: fr.sum,
@@ -140,7 +186,7 @@ function App() {
     };
   }
 
-  // --- FUNCIÓN DE RESETEO ---
+  // ✅ resetFormulario: resetea ABSOLUTAMENTE TODO, incluido el modelo
   const resetFormulario = () => {
     setModeloIdx(0);
     setPatenta("con");
@@ -165,114 +211,59 @@ function App() {
 
   const handleIA = async () => {
     if (!iaInput.trim()) return;
-    const msgUser = iaInput;
     setIaOutput("Conectando...");
-    setIaHistorial(prev => [...prev, { role: "user", content: msgUser }]);
-
     try {
       const res = await fetch("https://cotizador-byd.onrender.com/api/ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: msgUser, historial: iaHistorial })
+        body: JSON.stringify({ prompt: iaInput, historial: iaHistorial })
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
-      
-      if (data.error) { 
-        setIaOutput("Error: " + data.error);
-        setIaHistorial(prev => [...prev, { role: "assistant", content: "Error: " + data.error }]);
-        return; 
-      }
+      if (data.error) { setIaOutput("Error: " + data.error); return; }
 
+      // La IA pidió aclaración
       if (data.pregunta) {
         setIaOutput(data.pregunta);
-        setIaHistorial(prev => [...prev, { role: "assistant", content: data.pregunta }]);
+        setIaHistorial(prev => [
+          ...prev,
+          { role: "user", content: iaInput },
+          { role: "assistant", content: data.pregunta }
+        ]);
         setIaInput("");
         return;
       }
 
       const datos = JSON.parse(data.respuesta);
-      
+
+      // Carga de modelo
       if (datos.modelo) {
-        const busq = datos.modelo.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const idx = MODELOS.findIndex(m => {
-          const nom = m.nombre.toLowerCase().replace(/[^a-z0-9]/g, "");
-          return nom.includes(busq) || busq.includes(nom);
-        });
-        
+        const idx = matchearModelo(datos.modelo);
         if (idx >= 0) {
           setModeloIdx(idx);
-          if (datos.aplicar_bonif) {
-            const nuevoModelo = MODELOS[idx];
-            if (nuevoModelo.bonif > 0) {
-              setAplicarBonif(true);
-              setBonifMonto(nuevoModelo.bonif); 
-            }
+          const nuevoModelo = MODELOS[idx];
+          if (datos.aplicar_bonif && nuevoModelo.bonif > 0) {
+            setAplicarBonif(true);
+            setBonifMonto(nuevoModelo.bonif);
           }
         }
       }
-      
+
       if (datos.anticipo_pesos) setAntPesos(Number(datos.anticipo_pesos));
       if (datos.anticipo_usd) setAntUsd(Number(datos.anticipo_usd));
       if (datos.usado) { setCheckUsado(true); setTasacion(Number(datos.usado)); }
       if (datos.financiar !== undefined) setFinanciar(Boolean(datos.financiar));
-      
+
       setIaOutput("¡Datos cargados exitosamente!");
-      setIaHistorial(prev => [...prev, { role: "assistant", content: "Datos cargados exitosamente." }]);
+      setIaHistorial([]);
       setIaInput("");
     } catch (e) {
       setIaOutput("Fallo: " + e.message);
-      setIaHistorial(prev => [...prev, { role: "assistant", content: "Fallo: " + e.message }]);
     }
   };
 
   const guardarEnCRM = () => {
     alert(`Guardando en CRM:\nCliente: ${nombreCliente}\nTeléfono: ${telefonoCliente}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
-  };
-
-  const generarMensaje = () => {
-    let msg = `Hola! Te paso la cotización de tu *BYD ${dm.nombre}*:\n\n`;
-    msg += `*Precio de Lista:* ${nf(dm.precio)}\n`;
-    if (bonifEfectiva > 0) msg += `*Bonificación aplicada:* - ${nf(bonifEfectiva)}\n`;
-    msg += `*Fletes y Formularios:* ${nf(dm.fyf)}\n`;
-    if (patenta === "con") msg += `*Patentamiento:* ${nf(patMonto)}\n`;
-    msg += `*Total a Abonar:* ${nf(total)}\n\n`;
-    
-    if (antPesos > 0 || antUsd > 0) {
-      msg += `*FORMA DE PAGO:*\n`;
-      if (antPesos > 0) msg += `• Anticipo en Pesos: $ ${antPesos.toLocaleString("es-AR")}\n`;
-      if (antUsd > 0) msg += `• Anticipo en Dólares: USD ${antUsd.toLocaleString("es-AR")}\n`;
-    }
-    if (checkUsado) {
-      msg += `• Vehículo en parte de pago: $ ${tasacion.toLocaleString("es-AR")} (${monedaUsado})\n`;
-    }
-    msg += `*Diferencia a abonar:* ${nf(dif)}\n`;
-
-    if (resumenFin) {
-      msg += `\n*FINANCIACIÓN (Banco Santander):*\n`;
-      msg += `• Línea: ${resumenFin.linea}\n`;
-      msg += `• Plazo: ${resumenFin.plazo} meses\n`;
-      msg += `• A financiar: ${f(resumenFin.aFinanciar)}\n`;
-      msg += `• Cuota inicial: ${f(resumenFin.cuota)}\n`;
-    }
-    msg += `\n*Los valores están sujetos a la lista vigente y aprobación crediticia. No incluye seguro.*\n`;
-    return msg;
-  };
-
-  const msgFinal = generarMensaje();
-
-  const copiarMensaje = () => {
-    navigator.clipboard.writeText(msgFinal);
-    alert("Mensaje copiado al portapapeles");
-  };
-
-  const enviarWhatsApp = () => {
-    const url = `https://wa.me/?text=${encodeURIComponent(msgFinal)}`;
-    window.open(url, '_blank');
-  };
-
-  const descargarPDF = () => {
-    window.print();
   };
 
   return (
@@ -284,26 +275,25 @@ function App() {
 
       <div className="asistente-card">
         <h2>Asistente IA</h2>
-        <div className="historial-chat">
-          {iaHistorial.map((h, i) => (
-            <div key={i} className={`chat-msg ${h.role}`}>
-              <b>{h.role === "user" ? "Vos:" : "Asistente:"}</b> {h.content}
-            </div>
-          ))}
-        </div>
-        <textarea 
-          value={iaInput} 
-          onChange={(e) => setIaInput(e.target.value)} 
+        <textarea
+          value={iaInput}
+          onChange={(e) => setIaInput(e.target.value)}
           placeholder="Ej: Quiere una Song Pro, entrega 10 palos y financia el resto..."
         />
-        <button onClick={handleIA}>Armar cotización</button>
-        <button 
-          onClick={resetFormulario} 
-          style={{ marginLeft: '10px', background: 'transparent', border: '1px solid var(--line)' }}
-        >
-          Nueva consulta
-        </button>
-        {iaOutput && !iaHistorial.length && <p className="ia-output">{iaOutput}</p>}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button onClick={handleIA}>Armar cotización</button>
+          <button
+            onClick={resetFormulario}
+            style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink)' }}
+          >
+            Nueva consulta
+          </button>
+        </div>
+        {iaOutput && (
+          <p className="ia-output" style={{ color: iaOutput.includes("Error") || iaOutput.includes("Fallo") ? "#EF4444" : "#3B82F6" }}>
+            {iaOutput}
+          </p>
+        )}
       </div>
 
       <div className="layout-grid">
@@ -326,9 +316,7 @@ function App() {
                     <label>Monto bonif. ({dm.moneda})</label>
                     <input type="number" value={bonifMonto} onChange={(e) => setBonifMonto(Number(e.target.value))} />
                     {bonifEfectiva > 0 && (
-                      <div className="codigo-disfrazado">
-                        Código: {cod(bonifEfectiva)}
-                      </div>
+                      <div className="codigo-disfrazado">Código: {cod(bonifEfectiva)}</div>
                     )}
                   </>
                 )}
@@ -340,7 +328,7 @@ function App() {
               <option value="con">Concesionario</option>
               <option value="cli">Cliente</option>
             </select>
-            
+
             <div className="resumen" style={{ marginTop: '15px' }}>
               <div className="row"><span>Precio Lista:</span> <span>{nf(dm.precio)}</span></div>
               {bonifEfectiva > 0 && <div className="row"><span>Bonificación:</span> <span>- {nf(bonifEfectiva)}</span></div>}
@@ -353,15 +341,23 @@ function App() {
           <div className="card">
             <h2>Pago</h2>
             <label>Dólar Agencia ($)</label>
-            <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
-            
+            <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value) || 1)} />
+
             <label>Anticipo en Pesos ($)</label>
             <input type="number" value={antPesos} onChange={(e) => setAntPesos(Number(e.target.value))} />
-            {tc > 0 && <div className="conv">≈ USD {Math.round(antPesos / tc).toLocaleString("es-AR")}</div>}
+            {antPesos > 0 && (
+              <div style={{ fontSize: '12px', color: 'var(--mut)', marginTop: '4px' }}>
+                ≈ {u(antPesos / (tc || 1))}
+              </div>
+            )}
 
             <label>Anticipo en Dólares (USD)</label>
             <input type="number" value={antUsd} onChange={(e) => setAntUsd(Number(e.target.value))} />
-            {tc > 0 && <div className="conv">≈ $ {Math.round(antUsd * tc).toLocaleString("es-AR")}</div>}
+            {antUsd > 0 && (
+              <div style={{ fontSize: '12px', color: 'var(--mut)', marginTop: '4px' }}>
+                ≈ {f(antUsd * (tc || 1))}
+              </div>
+            )}
 
             <label className="switch">
               <input type="checkbox" checked={checkUsado} onChange={(e) => setCheckUsado(e.target.checked)} />
@@ -389,8 +385,16 @@ function App() {
           <div className="card big">
             <h2>Diferencia a abonar</h2>
             <div className="cuota">{nf(dif)}</div>
-            {esUsd && <div className="conv" style={{ fontSize: '14px', marginTop: '4px' }}>≈ $ {Math.round(difEnPesos).toLocaleString("es-AR")}</div>}
-            {!esUsd && tc > 0 && <div className="conv" style={{ fontSize: '14px', marginTop: '4px' }}>≈ USD {Math.round(dif / tc).toLocaleString("es-AR")}</div>}
+            {esUsd && (
+              <div style={{ fontSize: '13px', color: 'var(--mut)', marginTop: '8px' }}>
+                ≈ {f(dif * (tc || 1))}
+              </div>
+            )}
+            {!esUsd && antUsd > 0 && (
+              <div style={{ fontSize: '13px', color: 'var(--mut)', marginTop: '8px' }}>
+                ≈ {u(dif / (tc || 1))}
+              </div>
+            )}
           </div>
 
           <div className="card">
@@ -398,21 +402,27 @@ function App() {
               <input type="checkbox" checked={financiar} onChange={(e) => setFinanciar(e.target.checked)} />
               <span>Financiar la diferencia</span>
             </label>
-            
+
             {financiar && (
               <>
                 <label>Línea Santander</label>
                 <select value={lineaIdx} onChange={(e) => setLineaIdx(Number(e.target.value))}>
                   {lineasValidas.map((l, i) => <option key={i} value={i}>{l.n}</option>)}
                 </select>
-                
+
                 <label>Plazo</label>
                 <div className="chips">
-                  {lineaSel.r.map(r => (
-                    <button key={r[0]} className={plazo === r[0] ? "chip active" : "chip"} onClick={() => setPlazo(r[0])}>{r[0]}</button>
+                  {lineaSel?.r.map(r => (
+                    <button
+                      key={r[0]}
+                      className={plazo === r[0] ? "chip active" : "chip"}
+                      onClick={() => setPlazo(r[0])}
+                    >
+                      {r[0]}
+                    </button>
                   ))}
                 </div>
-                
+
                 {resumenFin && (
                   <div className="detalle-financiacion">
                     <h2 style={{ marginTop: '15px' }}>Detalle de la Opción</h2>
@@ -423,6 +433,7 @@ function App() {
                     <div className="row"><span>Cuota inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
                     <div className="row mut"><span>Última cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
                     <div className="row mut"><span>Total de cuotas:</span> <span>{f(resumenFin.totalCuotas)}</span></div>
+                    {resumenFin.tope && <div className="row mut"><span>Tope:</span> <span>{f(resumenFin.tope)}</span></div>}
                   </div>
                 )}
 
@@ -433,35 +444,29 @@ function App() {
                   <option value="inicial">Poner menos al inicio</option>
                   <option value="costo">Menor costo total</option>
                 </select>
-                
+
                 <div className="lista-opciones">
+                  {mejores.length === 0 && (
+                    <p style={{ fontSize: '13px', color: 'var(--mut)' }}>
+                      No hay opciones válidas (¿el monto a financiar supera los topes?).
+                    </p>
+                  )}
                   {mejores.map((opt, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`opcion-card ${opt.l.n === lineaSel.n && opt.r[0] === plazo ? 'selected' : ''}`} 
+                    <div
+                      key={idx}
+                      className={`opcion-card ${opt.l.n === lineaSel?.n && opt.r[0] === plazo ? 'selected' : ''}`}
                       onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}
                     >
                       <div className="opcion-info">
                         <b>{opt.l.n}</b>
                         <span>{opt.r[0]} cuotas</span>
                       </div>
-                      <div className="opcion-cuota">
-                        {f(opt.cuota)}
-                      </div>
+                      <div className="opcion-cuota">{f(opt.cuota)}</div>
                     </div>
                   ))}
                 </div>
               </>
             )}
-          </div>
-
-          <div className="card">
-            <h2>Acciones</h2>
-            <div className="acciones">
-              <button className="btn-sec" onClick={copiarMensaje}>Copiar Mensaje</button>
-              <button className="btn-sec" onClick={enviarWhatsApp}>Enviar WhatsApp</button>
-              <button className="btn-sec" onClick={descargarPDF}>Descargar PDF</button>
-            </div>
           </div>
 
           <button className="btn-guardar" onClick={guardarEnCRM}>Guardar Cotización en CRM</button>
