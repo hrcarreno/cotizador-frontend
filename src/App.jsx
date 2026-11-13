@@ -134,7 +134,7 @@ export default function App() {
   const plazoFinal = plazosDisponibles.includes(plazo) ? plazo : plazosDisponibles[0];
   const plazoData = lineaSel ? (lineaSel.r.find(r => r[0] === plazoFinal) || lineaSel.r[0]) : null;
 
-  // Cálculo de mejores opciones (SIN variables indefinidas)
+  // Cálculo de mejores opciones
   let mejores = [];
   if (financiar && dif > 0) {
     const difArs = esUsd ? dif * tc : dif;
@@ -147,7 +147,7 @@ export default function App() {
         const fr = frances(difArs, tna, r[0]);
         const tope = r[3] ? r[3] : Infinity;
         if (difArs <= tope) {
-          const ponArs = difArs + gast; // plata que pone el cliente al inicio, en ARS
+          const ponArs = difArs + gast; 
           opciones.push({
             l,
             i,
@@ -277,8 +277,8 @@ export default function App() {
         }
       }
 
-      if (datos.anticipo_pesos) setAntPesos(Number(datos.anticipo_pesos));
-      if (datos.anticipo_usd) setAntUsd(Number(datos.anticipo_usd));
+      if (datos.anticipo_pesos !== undefined) setAntPesos(Number(datos.anticipo_pesos));
+      if (datos.anticipo_usd !== undefined) setAntUsd(Number(datos.anticipo_usd));
       if (datos.usado) { setCheckUsado(true); setTasacion(Number(datos.usado)); }
       if (datos.financiar !== undefined) setFinanciar(Boolean(datos.financiar));
 
@@ -475,72 +475,4 @@ ${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses 
                 <div className="chips">
                   {lineaSel.r.map(r => (
                     <button
-                      key={r[0]}
-                      className={plazoFinal === r[0] ? "chip active" : "chip"}
-                      onClick={() => setPlazo(r[0])}
-                    >
-                      {r[0]}
-                    </button>
-                  ))}
-                </div>
-
-                {resumenFin && (
-                  <div className="detalle-financiacion">
-                    <h2 style={{ marginTop: '15px' }}>Detalle de la Opción</h2>
-                    <div className="row"><span>Línea:</span> <span>{resumenFin.linea}</span></div>
-                    <div className="row"><span>Plazo:</span> <span>{resumenFin.plazo} meses</span></div>
-                    <div className="row"><span>A financiar:</span> <span>{f(resumenFin.aFinanciar)}</span></div>
-                    <div className="row mut"><span>Gasto de otorgamiento:</span> <span>{f(resumenFin.gasto)}</span></div>
-                    <div className="row"><span>Cuota inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
-                    <div className="row mut"><span>Última cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
-                    <div className="row mut"><span>Total de cuotas:</span> <span>{f(resumenFin.totalCuotas)}</span></div>
-                    {resumenFin.tope && <div className="row mut"><span>Tope:</span> <span>{f(resumenFin.tope)}</span></div>}
-                  </div>
-                )}
-
-                <h2 style={{ marginTop: '20px' }}>Mejores opciones</h2>
-                <label>Qué prioriza el cliente</label>
-                <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-                  <option value="cuota">Cuota más baja</option>
-                  <option value="inicial">Poner menos al inicio</option>
-                  <option value="costo">Menor costo total</option>
-                </select>
-
-                <div className="lista-opciones">
-                  {mejores.length === 0 && (
-                    <div className="opcion-card">
-                      <div className="opcion-info">
-                        <b>Sin opciones disponibles</b>
-                        <span>La diferencia supera los topes o no hay líneas válidas.</span>
-                      </div>
-                    </div>
-                  )}
-                  {mejores.map((opt, idx) => (
-                    <div
-                      key={idx}
-                      className={`opcion-card ${opt.l.n === lineaSel.n && opt.r[0] === plazoFinal ? 'selected' : ''}`}
-                      onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}
-                    >
-                      <div className="opcion-info">
-                        <b>{opt.l.n}</b>
-                        <span>{opt.r[0]} cuotas</span>
-                      </div>
-                      <div className="opcion-cuota">{f(opt.cuota)}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="acciones">
-            <button className="btn-accion" onClick={copiarMensaje}>Copiar mensaje</button>
-            <button className="btn-accion" onClick={enviarWhatsApp}>Enviar WhatsApp</button>
-            <button className="btn-accion" onClick={descargarPDF}>Descargar PDF</button>
-          </div>
-          <button className="btn-guardar" onClick={guardarEnCRM}>Guardar Cotización en CRM</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+                      key
