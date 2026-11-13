@@ -80,8 +80,10 @@ function App() {
   const esUsd = dm.moneda === "USD";
   const nf = esUsd ? u : f;
 
-  const bonifAplicada = aplicarBonif ? Math.min(bonifMonto, dm.precio) : 0;
-  const precioBase = dm.precio - bonifAplicada;
+  // Lógica: Si aplicarBonif está activo y bonifMonto es 0, usamos el máximo del modelo
+  const bonifEfectiva = aplicarBonif ? (bonifMonto > 0 ? Math.min(bonifMonto, dm.precio) : dm.bonif) : 0;
+  
+  const precioBase = dm.precio - bonifEfectiva;
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
   
@@ -146,14 +148,12 @@ function App() {
         const busq = datos.modelo.toLowerCase();
         const idx = MODELOS.findIndex(m => {
           const nom = m.nombre.toLowerCase();
-          
           if (busq.includes("dolphin") && nom.includes("dolphin")) {
             if (busq.includes("gs") && nom.includes("gs")) return true;
             if (busq.includes("gl") && nom.includes("gl")) return true;
             if (!busq.includes("gs") && !busq.includes("gl") && nom.includes("gs")) return true;
             return false;
           }
-          
           if (busq.includes("song") && nom.includes("song")) return true;
           if (busq.includes("yuan") && nom.includes("yuan")) return true;
           if (busq.includes("atto") && nom.includes("atto")) return true;
@@ -227,9 +227,9 @@ function App() {
                   <>
                     <label>Monto bonif. ({dm.moneda})</label>
                     <input type="number" value={bonifMonto} onChange={(e) => setBonifMonto(Number(e.target.value))} />
-                    {bonifMonto > 0 && (
+                    {bonifEfectiva > 0 && (
                       <div className="codigo-disfrazado">
-                        Código: {cod(bonifMonto)}
+                        Código: {cod(bonifEfectiva)}
                       </div>
                     )}
                   </>
@@ -245,7 +245,7 @@ function App() {
             
             <div className="resumen" style={{ marginTop: '15px' }}>
               <div className="row"><span>Precio Lista:</span> <span>{nf(dm.precio)}</span></div>
-              {bonifAplicada > 0 && <div className="row"><span>Bonificación:</span> <span>- {nf(bonifAplicada)}</span></div>}
+              {bonifEfectiva > 0 && <div className="row"><span>Bonificación:</span> <span>- {nf(bonifEfectiva)}</span></div>}
               <div className="row"><span>FyF:</span> <span>{nf(dm.fyf)}</span></div>
               {patenta === "con" && <div className="row"><span>Patentamiento:</span> <span>{nf(patMonto)}</span></div>}
               <div className="row total"><span>Total:</span> <span>{nf(total)}</span></div>
