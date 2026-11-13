@@ -290,4 +290,52 @@ input:focus, select:focus { border-color: var(--acc); }
   justify-content: space-between;
   align-items: center;
   background: var(--bg);
-  border: 1px solid var(--line
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.opcion-card:hover { border-color: var(--acc); }
+.opcion-card.selected {
+  border-color: var(--acc);
+  background: var(--accbg);
+}
+
+.opcion-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.opcion-info b {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.opcion-info span {
+  font-size: 12px;
+  color: var(--mut);
+}
+
+.opcion-cuota {
+  font-weight: 700;
+  color: var(--acc);
+  font-size: 16px;
+}
+
+/* --- BOTÓN GUARDAR --- */
+.btn-guardar {
+  width: 100%;
+  background: #10B981;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-guardar:hover { background: #059669; }
