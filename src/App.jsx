@@ -1,33 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
-
-const MODELOS = [
-  { nombre: "Dolphin Mini EV GL", moneda: "ARS", precio: 36200000, bonif: 2172000, fyf: 800000, pat: 2381960 },
-  { nombre: "Dolphin Mini EV GS", moneda: "ARS", precio: 37700000, bonif: 2262000, fyf: 800000, pat: 2480660 },
-  { nombre: "Yuan Pro EV GL", moneda: "USD", precio: 30990, bonif: 0, fyf: 500, pat: 2169 },
-  { nombre: "Yuan Pro EV GS", moneda: "USD", precio: 31990, bonif: 0, fyf: 500, pat: 2239 },
-  { nombre: "Atto 2 DM-I GS", moneda: "USD", precio: 32291, bonif: 1615, fyf: 500, pat: 2147 },
-  { nombre: "Song Pro DM-I GL", moneda: "USD", precio: 33716, bonif: 1686, fyf: 500, pat: 2242 },
-  { nombre: "Song Pro DM-I GS", moneda: "USD", precio: 35616, bonif: 1781, fyf: 500, pat: 2368 },
-  { nombre: "Seal U DM-I GS", moneda: "USD", precio: 47990, bonif: 0, fyf: 800, pat: 3359 },
-  { nombre: "SHARK DM-O GS", moneda: "USD", precio: 59990, bonif: 4799, fyf: 800, pat: 3863 },
-  { nombre: "TI7 GS", moneda: "USD", precio: 65500, bonif: 0, fyf: 800, pat: 4585 },
-  { nombre: "Seal 5", moneda: "USD", precio: 31990, bonif: 1600, fyf: 500, pat: 2127 }
-];
-
-const LINEAS = [
-  { n: "Convenio BYD · UVA 0%", k: "conv", uva: true, aplica: ["Dolphin Mini", "Song Pro", "Yuan Pro", "Seal 5", "Atto 2"], r: [[12, 0, 6.56, 25000000], [18, 0, 9.64, 17000000]] },
-  { n: "Convenio BYD · Fija 0%", k: "conv", uva: false, aplica: ["Dolphin Mini", "Song Pro", "Yuan Pro", "Seal 5", "Atto 2"], r: [[12, 0, 16.39, 10000000]] },
-  { n: "Convenio BYD · Fija 9,90%", k: "conv", uva: false, aplica: ["Dolphin Mini", "Song Pro", "Yuan Pro", "Seal 5", "Atto 2"], r: [[12, 9.9, 10.93, 15000000]] },
-  { n: "Convenio BYD · Fija 14,90%", k: "conv", uva: false, aplica: ["Dolphin Mini", "Song Pro", "Yuan Pro", "Seal 5", "Atto 2"], r: [[18, 14.9, 12.61, 13000000]] },
-  { n: "Quebranto concesionario · Fija 0%", k: "queb", uva: false, ltv: [90, 100], r: [[12, 0, 15.8, null], [18, 0, 21.9, null], [24, 0, 27.5, null], [36, 0, 37, null], [48, 0, 44.8, null]] },
-  { n: "Quebranto concesionario · UVA 0%", k: "queb", uva: true, ltv: [85], r: [[12, 0, 6.5, null], [18, 0, 9.3, null], [24, 0, 12, null], [36, 0, 17, null], [48, 0, 21.6, null]] },
-  { n: "Quebranto concesionario · UVA 9,90%", k: "queb", uva: true, ltv: [85], r: [[12, 9.9, 1.4, null], [18, 9.9, 2, null], [24, 9.9, 2.6, null], [36, 9.9, 3.7, null], [48, 9.9, 4.8, null]] },
-  { n: "Sin quebranto · UVA 12,50%", k: "sin", uva: true, ltv: [85], r: [[12, 12.5, 0, null], [18, 12.5, 0, null], [24, 12.5, 0, null], [36, 12.5, 0, null], [48, 12.5, 0, null]] },
-  { n: "Sin quebranto · Fija 32,90%", k: "sin", uva: false, ltv: [90, 100], r: [[12, 32.9, 0, null], [18, 32.9, 0, null], [24, 32.9, 0, null], [36, 32.9, 0, null], [48, 32.9, 0, null], [60, 32.9, 0, null]] },
-  { n: "Comisión · UVA 14,50%", k: "com", uva: true, ltv: [85], r: [[12, 14.5, 0, null], [18, 14.5, 0, null], [24, 14.5, 0, null], [36, 14.5, 0, null], [48, 14.5, 0, null]] },
-  { n: "Comisión · Fija 34,90%", k: "com", uva: false, ltv: [90, 100], r: [[12, 34.9, 0, null], [18, 34.9, 0, null], [24, 34.9, 0, null], [36, 34.9, 0, null], [48, 34.9, 0, null], [60, 34.9, 0, null]] }
-];
 
 const f = (n) => "$ " + Math.round(n).toLocaleString("es-AR");
 const u = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { maximumFractionDigits: 2 });
@@ -53,6 +25,9 @@ function frances(mo, tna, n) {
   return { first, last, sum };
 }
 
+// ==========================================
+// ESTADOS INICIALES (Vacíos, se llenan de Supabase)
+// ==========================================
 const ESTADO_INICIAL = {
   modeloIdx: 0,
   patenta: "con",
@@ -76,6 +51,11 @@ const ESTADO_INICIAL = {
 };
 
 export default function App() {
+  const [modelos, setModelos] = useState([]);
+  const [lineas, setLineas] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [modoAdmin, setModoAdmin] = useState(false);
+
   const [modeloIdx, setModeloIdx] = useState(ESTADO_INICIAL.modeloIdx);
   const [patenta, setPatenta] = useState(ESTADO_INICIAL.patenta);
   const [tc, setTc] = useState(ESTADO_INICIAL.tc);
@@ -100,47 +80,80 @@ export default function App() {
   const [iaHistorial, setIaHistorial] = useState(ESTADO_INICIAL.iaHistorial);
 
   const chatRef = useRef(null);
+  const API_URL = "https://cotizador-byd.onrender.com";
 
-  const dm = MODELOS[modeloIdx];
+  // ==========================================
+  // CARGA INICIAL DE DATOS (Supabase)
+  // ==========================================
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [resModelos, resLineas, resConfig] = await Promise.all([
+          fetch(`${API_URL}/api/modelos`),
+          fetch(`${API_URL}/api/lineas`),
+          fetch(`${API_URL}/api/config`)
+        ]);
+        
+        const dataModelos = await resModelos.json();
+        const dataLineas = await resLineas.json();
+        const dataConfig = await resConfig.json();
+
+        setModelos(dataModelos);
+        setLineas(dataLineas);
+        
+        if (dataConfig.dolar_agencia) {
+          setTc(dataConfig.dolar_agencia);
+        }
+      } catch (e) {
+        console.error("Error cargando datos de BD", e);
+      } finally {
+        setCargando(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (cargando) {
+    return <div className="app-container" style={{textAlign: 'center', marginTop: '50px'}}><h2>Cargando cotizador...</h2></div>;
+  }
+
+  // A partir de acá, "modelos" y "lineas" ya tienen los datos de la BD
+  const dm = modelos[modeloIdx] || modelos[0];
+  if (!dm) return <div>Error: No hay modelos cargados en la base de datos.</div>;
+
   const esUsd = dm.moneda === "USD";
   const nf = esUsd ? u : f;
 
   const bonifEfectiva = aplicarBonif ? (bonifMonto > 0 ? Math.min(bonifMonto, dm.precio) : dm.bonif) : 0;
-
   const precioBase = dm.precio - bonifEfectiva;
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
 
-  // Anticipo total expresado EN LA MONEDA DEL AUTO
   const anticipoEnMoneda = esUsd
     ? (antUsd + (tc > 0 ? antPesos / tc : 0))
     : (antPesos + (antUsd * tc));
 
-  // Usado expresado EN LA MONEDA DEL AUTO
   const usadoEnMoneda = esUsd
     ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0))
     : (monedaUsado === "usd" ? tasacion * tc : tasacion);
 
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
 
-  const lineasValidas = LINEAS.filter(l => !l.aplica || l.aplica.some(a => dm.nombre.includes(a)));
-
-  // Aseguramos que lineaIdx esté dentro del rango de lineasValidas
+  const lineasValidas = lineas.filter(l => !l.aplica_a || l.aplica_a.length === 0 || l.aplica_a.some(a => dm.nombre.includes(a)));
+  
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
   const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0];
 
-  // Plazo válido para la línea actual
-  const plazosDisponibles = lineaSel ? lineaSel.r.map(r => r[0]) : [];
+  const plazosDisponibles = lineaSel ? lineaSel.plazos.map(r => r[0]) : [];
   const plazoFinal = plazosDisponibles.includes(plazo) ? plazo : plazosDisponibles[0];
-  const plazoData = lineaSel ? (lineaSel.r.find(r => r[0] === plazoFinal) || lineaSel.r[0]) : null;
+  const plazoData = lineaSel ? (lineaSel.plazos.find(r => r[0] === plazoFinal) || lineaSel.plazos[0]) : null;
 
-  // Cálculo de mejores opciones
   let mejores = [];
   if (financiar && dif > 0) {
     const difArs = esUsd ? dif * tc : dif;
     const opciones = [];
     lineasValidas.forEach((l, i) => {
-      l.r.forEach(r => {
+      l.plazos.forEach(r => {
         const tna = r[1];
         const quebranto = r[2] * 1.21;
         const gast = difArs * (quebranto / 100);
@@ -149,9 +162,7 @@ export default function App() {
         if (difArs <= tope) {
           const ponArs = difArs + gast; 
           opciones.push({
-            l,
-            i,
-            r,
+            l, i, r,
             cuota: fr.first,
             gast,
             pon: ponArs,
@@ -174,7 +185,7 @@ export default function App() {
     const gasto = difArs * (quebranto / 100);
     const fr = frances(difArs, tna, plazoFinal);
     resumenFin = {
-      linea: lineaSel.n,
+      linea: lineaSel.nombre,
       plazo: plazoFinal,
       aFinanciar: difArs,
       gasto: gasto,
@@ -185,11 +196,10 @@ export default function App() {
     };
   }
 
-  // === RESET TOTAL ===
   const resetFormulario = () => {
     setModeloIdx(ESTADO_INICIAL.modeloIdx);
     setPatenta(ESTADO_INICIAL.patenta);
-    setTc(ESTADO_INICIAL.tc);
+    // El tc NO se resetea a 1450, se mantiene el que vino de la BD
     setAplicarBonif(ESTADO_INICIAL.aplicarBonif);
     setBonifMonto(ESTADO_INICIAL.bonifMonto);
     setAntPesos(ESTADO_INICIAL.antPesos);
@@ -212,19 +222,14 @@ export default function App() {
     if (!iaInput.trim()) return;
     const promptActual = iaInput;
     setIaOutput("Conectando...");
-
-    // Agregamos el mensaje del user al historial visual ya mismo
     setIaHistorial(prev => [...prev, { role: "user", content: promptActual }]);
     setIaInput("");
 
     try {
-      const res = await fetch("https://cotizador-byd.onrender.com/api/ia", {
+      const res = await fetch(`${API_URL}/api/ia`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: promptActual,
-          historial: iaHistorial
-        })
+        body: JSON.stringify({ prompt: promptActual, historial: iaHistorial })
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
@@ -240,7 +245,7 @@ export default function App() {
 
       if (datos.modelo) {
         const busq = datos.modelo.toLowerCase();
-        const idx = MODELOS.findIndex(m => {
+        const idx = modelos.findIndex(m => {
           const nom = m.nombre.toLowerCase();
           if (busq.includes("dolphin") && nom.includes("dolphin")) {
             if (busq.includes("gs") && nom.includes("gs")) return true;
@@ -268,7 +273,7 @@ export default function App() {
         if (idx >= 0) {
           setModeloIdx(idx);
           if (datos.aplicar_bonif) {
-            const nuevoModelo = MODELOS[idx];
+            const nuevoModelo = modelos[idx];
             if (nuevoModelo.bonif > 0) {
               setAplicarBonif(true);
               setBonifMonto(nuevoModelo.bonif);
@@ -291,45 +296,99 @@ export default function App() {
     }
   };
 
-  const armarTexto = () => {
-    return `Cotización BYD — ${dm.nombre}
-Total: ${nf(total)}
-Anticipo: ${f(antPesos)} + ${u(antUsd)}
-Diferencia a abonar: ${nf(dif)}
-${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses · Cuota inicial ${f(resumenFin.cuota)}` : ""}`.trim();
-  };
-
-  const copiarMensaje = async () => {
-    try {
-      await navigator.clipboard.writeText(armarTexto());
-      alert("Mensaje copiado al portapapeles");
-    } catch {
-      alert("No se pudo copiar");
-    }
-  };
-
-  const enviarWhatsApp = () => {
-    const tel = telefonoCliente.replace(/\D/g, "");
-    const url = tel
-      ? `https://wa.me/${tel}?text=${encodeURIComponent(armarTexto())}`
-      : `https://wa.me/?text=${encodeURIComponent(armarTexto())}`;
-    window.open(url, "_blank");
-  };
-
-  const descargarPDF = () => {
-    window.print();
-  };
-
   const guardarEnCRM = () => {
     alert(`Guardando en CRM:\nCliente: ${nombreCliente || "(sin nombre)"}\nTeléfono: ${telefonoCliente || "(sin teléfono)"}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
   };
 
+  // ==========================================
+  // LÓGICA DE ADMINISTRACIÓN
+  // ==========================================
+  const guardarDolar = async () => {
+    try {
+      await fetch(`${API_URL}/api/admin/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clave: "dolar_agencia", valor: tc })
+      });
+      alert("Dólar guardado correctamente. Los vendedores verán este valor al recargar la página.");
+    } catch (e) {
+      alert("Error guardando el dólar");
+    }
+  };
+
+  const actualizarTasa = async (lineaId, indexPlazo, nuevaTasa) => {
+    const linea = lineas.find(l => l.id === lineaId);
+    const nuevosPlazos = JSON.parse(JSON.stringify(linea.plazos)); // Copia profunda
+    nuevosPlazos[indexPlazo][1] = Number(nuevaTasa);
+    
+    try {
+      await fetch(`${API_URL}/api/admin/lineas/${lineaId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plazos: nuevosPlazos, activo: linea.activo })
+      });
+      alert("Tasa actualizada. Refrescá la página (F5) para ver los cambios reflejados.");
+    } catch (e) {
+      alert("Error actualizando la tasa");
+    }
+  };
+
   return (
     <div className="app-container">
-      <header>
-        <h1>Cotizador BYD 0 km</h1>
-        <p className="sub">Lista de precios 2026 · Banco Santander</p>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1>Cotizador BYD 0 km</h1>
+          <p className="sub">Lista de precios 2026 · Banco Santander</p>
+        </div>
+        <button 
+          onClick={() => setModoAdmin(!modoAdmin)} 
+          style={{ background: modoAdmin ? '#EF4444' : 'transparent', border: '1px solid #334155', color: '#fff', fontSize: '12px', padding: '6px 10px' }}
+        >
+          {modoAdmin ? "Salir de Modo Admin" : "Modo Admin"}
+        </button>
       </header>
+
+      {/* PANEL DE ADMINISTRACIÓN (Solo visible si modoAdmin = true) */}
+      {modoAdmin && (
+        <div className="card" style={{ border: '2px solid #EF4444', marginBottom: '20px' }}>
+          <h2 style={{ color: '#EF4444' }}>⚙️ Panel de Administración</h2>
+          
+          <div style={{ marginBottom: '20px' }}>
+            <label><b>Dólar Agencia (Valor por defecto)</b></label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
+              <button onClick={guardarDolar} style={{ background: '#10B981' }}>Guardar Dólar</button>
+            </div>
+          </div>
+
+          <label><b>Líneas de Financiación (Editar TNA %)</b></label>
+          <div style={{ display: 'grid', gap: '15px', marginTop: '10px' }}>
+            {lineas.map(l => (
+              <div key={l.id} style={{ background: '#0F172A', padding: '15px', borderRadius: '8px' }}>
+                <h3 style={{ fontSize: '14px', margin: '0 0 10px 0' }}>{l.nombre}</h3>
+                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                  {l.plazos.map((p, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#1E293B', padding: '5px 10px', borderRadius: '4px' }}>
+                      <span style={{ fontSize: '12px' }}>{p[0]}m:</span>
+                      <input 
+                        type="number" 
+                        defaultValue={p[1]} 
+                        step="0.1"
+                        style={{ width: '70px', padding: '4px', fontSize: '12px' }}
+                        onBlur={(e) => actualizarTasa(l.id, idx, e.target.value)}
+                      />
+                      <span style={{ fontSize: '12px' }}>%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '10px' }}>
+            * Para modificar los topes o agregar plazos nuevos, avisame y lo armamos en el próximo paso. Por ahora pueden editar la TNA directamente tocando el número y saliendo del casillero.
+          </p>
+        </div>
+      )}
 
       <div className="asistente-card">
         <h2>Asistente IA</h2>
@@ -366,7 +425,7 @@ ${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses 
               value={modeloIdx}
               onChange={(e) => setModeloIdx(Number(e.target.value))}
             >
-              {MODELOS.map((m, i) => <option key={i} value={i}>{m.nombre}</option>)}
+              {modelos.map((m, i) => <option key={i} value={i}>{m.nombre}</option>)}
             </select>
 
             {dm.bonif > 0 && (
@@ -405,7 +464,8 @@ ${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses 
           <div className="card">
             <h2>Pago</h2>
             <label>Dólar Agencia ($)</label>
-            <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
+            <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} disabled={!modoAdmin} style={{ opacity: !modoAdmin ? 0.7 : 1 }} />
+            {!modoAdmin && <span style={{fontSize: '11px', color: '#94A3B8'}}>* Solo editable en Modo Admin</span>}
 
             <label>Anticipo en Pesos ($)</label>
             <input type="number" value={antPesos} onChange={(e) => setAntPesos(Number(e.target.value))} />
@@ -468,12 +528,12 @@ ${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses 
               <>
                 <label>Línea Santander</label>
                 <select value={lineaIdxSeguro} onChange={(e) => setLineaIdx(Number(e.target.value))}>
-                  {lineasValidas.map((l, i) => <option key={i} value={i}>{l.n}</option>)}
+                  {lineasValidas.map((l, i) => <option key={i} value={i}>{l.nombre}</option>)}
                 </select>
 
                 <label>Plazo</label>
                 <div className="chips">
-                  {lineaSel.r.map(r => (
+                  {lineaSel.plazos.map(r => (
                     <button
                       key={r[0]}
                       className={plazoFinal === r[0] ? "chip active" : "chip"}
@@ -518,11 +578,11 @@ ${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses 
                   {mejores.map((opt, idx) => (
                     <div
                       key={idx}
-                      className={`opcion-card ${opt.l.n === lineaSel.n && opt.r[0] === plazoFinal ? 'selected' : ''}`}
+                      className={`opcion-card ${opt.l.nombre === lineaSel.nombre && opt.r[0] === plazoFinal ? 'selected' : ''}`}
                       onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}
                     >
                       <div className="opcion-info">
-                        <b>{opt.l.n}</b>
+                        <b>{opt.l.nombre}</b>
                         <span>{opt.r[0]} cuotas</span>
                       </div>
                       <div className="opcion-cuota">{f(opt.cuota)}</div>
@@ -534,9 +594,9 @@ ${resumenFin ? `Financiación: ${resumenFin.linea} · ${resumenFin.plazo} meses 
           </div>
 
           <div className="acciones">
-            <button className="btn-accion" onClick={copiarMensaje}>Copiar mensaje</button>
-            <button className="btn-accion" onClick={enviarWhatsApp}>Enviar WhatsApp</button>
-            <button className="btn-accion" onClick={descargarPDF}>Descargar PDF</button>
+            <button className="btn-accion" onClick={() => navigator.clipboard.writeText("Cotización BYD")}>Copiar mensaje</button>
+            <button className="btn-accion" onClick={() => window.open("https://wa.me/", "_blank")}>Enviar WhatsApp</button>
+            <button className="btn-accion" onClick={() => window.print()}>Descargar PDF</button>
           </div>
           <button className="btn-guardar" onClick={guardarEnCRM}>Guardar Cotización en CRM</button>
         </div>
