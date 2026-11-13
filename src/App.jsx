@@ -75,6 +75,7 @@ function App() {
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [iaInput, setIaInput] = useState("");
   const [iaOutput, setIaOutput] = useState("");
+  const [iaHistorial, setIaHistorial] = useState([]);
 
   const dm = MODELOS[modeloIdx];
   const esUsd = dm.moneda === "USD";
@@ -86,7 +87,6 @@ function App() {
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
   
-  // Calculamos la diferencia en la moneda del auto
   const totalEnMoneda = total;
   const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / tc)) : (antPesos + (antUsd * tc));
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / tc) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
@@ -140,16 +140,33 @@ function App() {
   }
 
   const handleIA = async () => {
+    if (!iaInput.trim()) return;
     setIaOutput("Conectando...");
     try {
       const res = await fetch("https://cotizador-byd.onrender.com/api/ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: iaInput })
+        body: JSON.stringify({ 
+          prompt: iaInput,
+          historial: iaHistorial
+        })
       });
+      
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
+      
       if (data.error) { setIaOutput("Error: " + data.error); return; }
+
+      if (data.pregunta) {
+        setIaOutput(data.pregunta);
+        setIaHistorial(prev => [
+          ...prev, 
+          { role: "user", content: iaInput }, 
+          { role: "assistant", content: data.pregunta }
+        ]);
+        setIaInput("");
+        return;
+      }
 
       const datos = JSON.parse(data.respuesta);
       
@@ -191,6 +208,8 @@ function App() {
       if (datos.financiar !== undefined) setFinanciar(Boolean(datos.financiar));
       
       setIaOutput("¡Datos cargados exitosamente!");
+      setIaHistorial([]); 
+      setIaInput("");
     } catch (e) {
       setIaOutput("Fallo: " + e.message);
     }
@@ -215,6 +234,12 @@ function App() {
           placeholder="Ej: Quiere una Song Pro, entrega 10 palos y financia el resto..."
         />
         <button onClick={handleIA}>Armar cotización</button>
+        <button 
+          onClick={() => { setIaInput(""); setIaOutput(""); setIaHistorial([]); }} 
+          style={{ marginLeft: '10px', background: 'transparent', border: '1px solid var(--line)' }}
+        >
+          Nueva consulta
+        </button>
         {iaOutput && <p className="ia-output" style={{color: iaOutput.includes("Error") || iaOutput.includes("Fallo") ? "#EF4444" : "#3B82F6"}}>{iaOutput}</p>}
       </div>
 
