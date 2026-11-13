@@ -140,6 +140,29 @@ function App() {
     };
   }
 
+  // --- FUNCIÓN DE RESETEO ---
+  const resetFormulario = () => {
+    setModeloIdx(0);
+    setPatenta("con");
+    setTc(1450);
+    setAplicarBonif(false);
+    setBonifMonto(0);
+    setAntPesos(0);
+    setAntUsd(0);
+    setCheckUsado(false);
+    setTasacion(0);
+    setMonedaUsado("ars");
+    setFinanciar(false);
+    setLineaIdx(0);
+    setPlazo(12);
+    setPrioridad("cuota");
+    setNombreCliente("");
+    setTelefonoCliente("");
+    setIaInput("");
+    setIaOutput("");
+    setIaHistorial([]);
+  };
+
   const handleIA = async () => {
     if (!iaInput.trim()) return;
     const msgUser = iaInput;
@@ -171,21 +194,10 @@ function App() {
       const datos = JSON.parse(data.respuesta);
       
       if (datos.modelo) {
-        const busq = datos.modelo.toLowerCase();
+        const busq = datos.modelo.toLowerCase().replace(/[^a-z0-9]/g, "");
         const idx = MODELOS.findIndex(m => {
-          const nom = m.nombre.toLowerCase();
-          if (busq.includes("dolphin") && nom.includes("dolphin")) {
-            if (busq.includes("gs") && nom.includes("gs")) return true;
-            if (busq.includes("gl") && nom.includes("gl")) return true;
-            return false;
-          }
-          if (busq.includes("song") && nom.includes("song")) return true;
-          if (busq.includes("yuan") && nom.includes("yuan")) return true;
-          if (busq.includes("atto") && nom.includes("atto")) return true;
-          if (busq.includes("seal") && nom.includes("seal")) return true;
-          if (busq.includes("shark") && nom.includes("shark")) return true;
-          if (busq.includes("ti7") && nom.includes("ti7")) return true;
-          return false;
+          const nom = m.nombre.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return nom.includes(busq) || busq.includes(nom);
         });
         
         if (idx >= 0) {
@@ -286,7 +298,7 @@ function App() {
         />
         <button onClick={handleIA}>Armar cotización</button>
         <button 
-          onClick={() => { setIaInput(""); setIaOutput(""); setIaHistorial([]); }} 
+          onClick={resetFormulario} 
           style={{ marginLeft: '10px', background: 'transparent', border: '1px solid var(--line)' }}
         >
           Nueva consulta
