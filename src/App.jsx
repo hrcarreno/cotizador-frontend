@@ -80,7 +80,6 @@ function App() {
   const esUsd = dm.moneda === "USD";
   const nf = esUsd ? u : f;
 
-  // Lógica: Si aplicarBonif está activo y bonifMonto es 0, usamos el máximo del modelo
   const bonifEfectiva = aplicarBonif ? (bonifMonto > 0 ? Math.min(bonifMonto, dm.precio) : dm.bonif) : 0;
   
   const precioBase = dm.precio - bonifEfectiva;
@@ -115,19 +114,29 @@ function App() {
     else if (prioridad === "inicial") opciones.sort((a, b) => a.pon - b.pon);
     else opciones.sort((a, b) => a.costo - b.costo);
     
-    mejores = opciones.slice(0, 3);
+    mejores = opciones; // Mostramos TODAS las opciones, no solo 3
   }
 
   const lineaSel = lineasValidas[lineaIdx] || lineasValidas[0];
   const plazoData = lineaSel.r.find(r => r[0] === plazo) || lineaSel.r[0];
-  let resumenFin = "";
+  
+  let resumenFin = null;
   if (financiar && dif > 0) {
     const difArs = esUsd ? dif * tc : dif;
     const tna = plazoData[1];
     const quebranto = plazoData[2] * 1.21;
     const gasto = difArs * (quebranto / 100);
     const fr = frances(difArs, tna, plazo);
-    resumenFin = `A financiar: ${f(difArs)} | Gasto: ${f(gasto)} | Cuota: ${f(fr.first)}`;
+    resumenFin = {
+      linea: lineaSel.n,
+      plazo: plazo,
+      aFinanciar: difArs,
+      gasto: gasto,
+      cuota: fr.first,
+      ultimaCuota: fr.last,
+      totalCuotas: fr.sum,
+      tope: plazoData[3] || null
+    };
   }
 
   const handleIA = async () => {
@@ -310,7 +319,19 @@ function App() {
                   ))}
                 </div>
                 
-                {resumenFin && <p className="resumen-fin">{resumenFin}</p>}
+                {resumenFin && (
+                  <div className="detalle-financiacion">
+                    <h2 style={{ marginTop: '15px' }}>Detalle de la Opción</h2>
+                    <div className="row"><span>Línea:</span> <span>{resumenFin.linea}</span></div>
+                    <div className="row"><span>Plazo:</span> <span>{resumenFin.plazo} meses</span></div>
+                    <div className="row"><span>A financiar:</span> <span>{f(resumenFin.aFinanciar)}</span></div>
+                    <div className="row mut"><span>Gasto de otorgamiento:</span> <span>{f(resumenFin.gasto)}</span></div>
+                    <div className="row"><span>Cuota inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
+                    <div className="row mut"><span>Última cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
+                    <div className="row mut"><span>Total de cuotas:</span> <span>{f(resumenFin.totalCuotas)}</span></div>
+                    {resumenFin.tope && <div className="row mut"><span>Tope:</span> <span>{f(resumenFin.tope)}</span></div>}
+                  </div>
+                )}
 
                 <h2 style={{ marginTop: '20px' }}>Mejores opciones</h2>
                 <label>Qué prioriza el cliente</label>
@@ -320,12 +341,23 @@ function App() {
                   <option value="costo">Menor costo total</option>
                 </select>
                 
-                {mejores.map((opt, idx) => (
-                  <div key={idx} className="opcion-card" onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}>
-                    <span>{opt.l.n} · {opt.r[0]} cuotas</span>
-                    <span className="cuota-opcion">{f(opt.cuota)}</span>
-                  </div>
-                ))}
+                <div className="lista-opciones">
+                  {mejores.map((opt, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`opcion-card ${opt.l.n === lineaSel.n && opt.r[0] === plazo ? 'selected' : ''}`} 
+                      onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}
+                    >
+                      <div className="opcion-info">
+                        <b>{opt.l.n}</b>
+                        <span>{opt.r[0]} cuotas</span>
+                      </div>
+                      <div className="opcion-cuota">
+                        {f(opt.cuota)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </div>
