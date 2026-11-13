@@ -87,11 +87,14 @@ function App() {
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
   
+  // Convertimos a la moneda del vehículo para la resta
   const totalEnMoneda = total;
-  // Convertimos todo a la moneda del vehículo para que la resta sea coherente
   const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / (tc || 1))) : (antPesos + (antUsd * tc));
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / (tc || 1)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = totalEnMoneda - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
+
+  // Equivalente en pesos de la diferencia
+  const difEnPesos = esUsd ? dif * tc : dif;
 
   const lineasValidas = LINEAS.filter(l => !l.aplica || l.aplica.some(a => dm.nombre.includes(a)));
   
@@ -322,6 +325,8 @@ function App() {
           <div className="card big">
             <h2>Diferencia a abonar</h2>
             <div className="cuota">{nf(dif)}</div>
+            {esUsd && <div className="conv" style={{ fontSize: '14px', marginTop: '4px' }}>≈ $ {Math.round(difEnPesos).toLocaleString("es-AR")}</div>}
+            {!esUsd && tc > 0 && <div className="conv" style={{ fontSize: '14px', marginTop: '4px' }}>≈ USD {Math.round(dif / tc).toLocaleString("es-AR")}</div>}
           </div>
 
           <div className="card">
