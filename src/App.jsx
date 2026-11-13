@@ -25,9 +25,6 @@ function frances(mo, tna, n) {
   return { first, last, sum };
 }
 
-// ==========================================
-// ESTADOS INICIALES (Vacíos, se llenan de Supabase)
-// ==========================================
 const ESTADO_INICIAL = {
   modeloIdx: 0,
   patenta: "con",
@@ -82,9 +79,6 @@ export default function App() {
   const chatRef = useRef(null);
   const API_URL = "https://cotizador-byd.onrender.com";
 
-  // ==========================================
-  // CARGA INICIAL DE DATOS (Supabase)
-  // ==========================================
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -117,7 +111,6 @@ export default function App() {
     return <div className="app-container" style={{textAlign: 'center', marginTop: '50px'}}><h2>Cargando cotizador...</h2></div>;
   }
 
-  // A partir de acá, "modelos" y "lineas" ya tienen los datos de la BD
   const dm = modelos[modeloIdx] || modelos[0];
   if (!dm) return <div>Error: No hay modelos cargados en la base de datos.</div>;
 
@@ -199,7 +192,7 @@ export default function App() {
   const resetFormulario = () => {
     setModeloIdx(ESTADO_INICIAL.modeloIdx);
     setPatenta(ESTADO_INICIAL.patenta);
-    // El tc NO se resetea a 1450, se mantiene el que vino de la BD
+    // El tc NO se resetea para mantener el valor de la BD
     setAplicarBonif(ESTADO_INICIAL.aplicarBonif);
     setBonifMonto(ESTADO_INICIAL.bonifMonto);
     setAntPesos(ESTADO_INICIAL.antPesos);
@@ -300,9 +293,6 @@ export default function App() {
     alert(`Guardando en CRM:\nCliente: ${nombreCliente || "(sin nombre)"}\nTeléfono: ${telefonoCliente || "(sin teléfono)"}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
   };
 
-  // ==========================================
-  // LÓGICA DE ADMINISTRACIÓN
-  // ==========================================
   const guardarDolar = async () => {
     try {
       await fetch(`${API_URL}/api/admin/config`, {
@@ -318,7 +308,7 @@ export default function App() {
 
   const actualizarTasa = async (lineaId, indexPlazo, nuevaTasa) => {
     const linea = lineas.find(l => l.id === lineaId);
-    const nuevosPlazos = JSON.parse(JSON.stringify(linea.plazos)); // Copia profunda
+    const nuevosPlazos = JSON.parse(JSON.stringify(linea.plazos));
     nuevosPlazos[indexPlazo][1] = Number(nuevaTasa);
     
     try {
@@ -348,7 +338,6 @@ export default function App() {
         </button>
       </header>
 
-      {/* PANEL DE ADMINISTRACIÓN (Solo visible si modoAdmin = true) */}
       {modoAdmin && (
         <div className="card" style={{ border: '2px solid #EF4444', marginBottom: '20px' }}>
           <h2 style={{ color: '#EF4444' }}>⚙️ Panel de Administración</h2>
@@ -384,9 +373,6 @@ export default function App() {
               </div>
             ))}
           </div>
-          <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '10px' }}>
-            * Para modificar los topes o agregar plazos nuevos, avisame y lo armamos en el próximo paso. Por ahora pueden editar la TNA directamente tocando el número y saliendo del casillero.
-          </p>
         </div>
       )}
 
@@ -437,7 +423,16 @@ export default function App() {
                 {aplicarBonif && (
                   <>
                     <label>Monto bonif. ({dm.moneda})</label>
-                    <input type="number" value={bonifMonto} onChange={(e) => setBonifMonto(Number(e.target.value))} />
+                    {/* AQUÍ ESTÁ EL ARREGLO: Cambiado a type="text" para que no salte el cursor */}
+                    <input 
+                      type="text" 
+                      value={bonifMonto === 0 ? "" : bonifMonto} 
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, ""); // Solo números
+                        setBonifMonto(val ? Number(val) : 0);
+                      }} 
+                      placeholder={`Ej: ${dm.bonif}`}
+                    />
                     {bonifEfectiva > 0 && (
                       <div className="codigo-disfrazado">Código: {cod(bonifEfectiva)}</div>
                     )}
