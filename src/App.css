@@ -122,6 +122,14 @@ input, select {
 
 input:focus, select:focus { border-color: var(--acc); }
 
+/* Feedback de conversión */
+.conv {
+  font-size: 12px;
+  color: var(--mut);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
 .two {
   display: grid;
   grid-template-columns: 1fr 1fr;
