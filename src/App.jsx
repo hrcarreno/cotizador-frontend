@@ -88,8 +88,9 @@ function App() {
   const total = precioBase + dm.fyf + patMonto;
   
   const totalEnMoneda = total;
-  const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / tc)) : (antPesos + (antUsd * tc));
-  const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / tc) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
+  // Convertimos todo a la moneda del vehículo para que la resta sea coherente
+  const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / (tc || 1))) : (antPesos + (antUsd * tc));
+  const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / (tc || 1)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = totalEnMoneda - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
 
   const lineasValidas = LINEAS.filter(l => !l.aplica || l.aplica.some(a => dm.nombre.includes(a)));
@@ -106,7 +107,7 @@ function App() {
         const fr = frances(difArs, tna, r[0]);
         const tope = r[3] ? r[3] : Infinity;
         if (difArs <= tope) {
-          opciones.push({ l, i, r, cuota: fr.first, gast, pon: anticipoArs + gast, costo: fr.sum - difArs + gast });
+          opciones.push({ l, i, r, cuota: fr.first, gast, pon: anticipoEnMoneda + gast, costo: fr.sum - difArs + gast });
         }
       });
     });
@@ -114,7 +115,7 @@ function App() {
     else if (prioridad === "inicial") opciones.sort((a, b) => a.pon - b.pon);
     else opciones.sort((a, b) => a.costo - b.costo);
     
-    mejores = opciones;
+    mejores = opciones.slice(0, 10);
   }
 
   const lineaSel = lineasValidas[lineaIdx] || lineasValidas[0];
@@ -146,24 +147,15 @@ function App() {
       const res = await fetch("https://cotizador-byd.onrender.com/api/ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          prompt: iaInput,
-          historial: iaHistorial
-        })
+        body: JSON.stringify({ prompt: iaInput, historial: iaHistorial })
       });
-      
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
-      
       if (data.error) { setIaOutput("Error: " + data.error); return; }
 
       if (data.pregunta) {
         setIaOutput(data.pregunta);
-        setIaHistorial(prev => [
-          ...prev, 
-          { role: "user", content: iaInput }, 
-          { role: "assistant", content: data.pregunta }
-        ]);
+        setIaHistorial(prev => [...prev, { role: "user", content: iaInput }, { role: "assistant", content: data.pregunta }]);
         setIaInput("");
         return;
       }
@@ -191,7 +183,6 @@ function App() {
         
         if (idx >= 0) {
           setModeloIdx(idx);
-          
           if (datos.aplicar_bonif) {
             const nuevoModelo = MODELOS[idx];
             if (nuevoModelo.bonif > 0) {
@@ -294,8 +285,11 @@ function App() {
             
             <label>Anticipo en Pesos ($)</label>
             <input type="number" value={antPesos} onChange={(e) => setAntPesos(Number(e.target.value))} />
+            {tc > 0 && <div className="conv">≈ USD {Math.round(antPesos / tc).toLocaleString("es-AR")}</div>}
+
             <label>Anticipo en Dólares (USD)</label>
             <input type="number" value={antUsd} onChange={(e) => setAntUsd(Number(e.target.value))} />
+            {tc > 0 && <div className="conv">≈ $ {Math.round(antUsd * tc).toLocaleString("es-AR")}</div>}
 
             <label className="switch">
               <input type="checkbox" checked={checkUsado} onChange={(e) => setCheckUsado(e.target.checked)} />
@@ -315,6 +309,11 @@ function App() {
                   </select>
                 </div>
               </div>
+            )}
+            {checkUsado && tc > 0 && (
+               <div className="conv">
+                 {monedaUsado === "ars" ? `≈ USD ${Math.round(tasacion / tc).toLocaleString("es-AR")}` : `≈ $ ${Math.round(tasacion * tc).toLocaleString("es-AR")}`}
+               </div>
             )}
           </div>
         </div>
@@ -355,7 +354,6 @@ function App() {
                     <div className="row"><span>Cuota inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
                     <div className="row mut"><span>Última cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
                     <div className="row mut"><span>Total de cuotas:</span> <span>{f(resumenFin.totalCuotas)}</span></div>
-                    {resumenFin.tope && <div className="row mut"><span>Tope:</span> <span>{f(resumenFin.tope)}</span></div>}
                   </div>
                 )}
 
