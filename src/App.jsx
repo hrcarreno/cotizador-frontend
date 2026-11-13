@@ -86,11 +86,11 @@ function App() {
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
   
-  const totalArs = esUsd ? total * tc : total;
-  const usadoArs = monedaUsado === "usd" ? tasacion * tc : tasacion;
-  const anticipoArs = antPesos + (antUsd * tc);
-  
-  const dif = totalArs - anticipoArs - (checkUsado ? usadoArs : 0);
+  // Calculamos la diferencia en la moneda del auto
+  const totalEnMoneda = total;
+  const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / tc)) : (antPesos + (antUsd * tc));
+  const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / tc) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
+  const dif = totalEnMoneda - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
 
   const lineasValidas = LINEAS.filter(l => !l.aplica || l.aplica.some(a => dm.nombre.includes(a)));
   
@@ -114,7 +114,7 @@ function App() {
     else if (prioridad === "inicial") opciones.sort((a, b) => a.pon - b.pon);
     else opciones.sort((a, b) => a.costo - b.costo);
     
-    mejores = opciones; // Mostramos TODAS las opciones, no solo 3
+    mejores = opciones;
   }
 
   const lineaSel = lineasValidas[lineaIdx] || lineasValidas[0];
@@ -185,7 +185,8 @@ function App() {
         }
       }
       
-      if (datos.anticipo) setAntPesos(Number(datos.anticipo));
+      if (datos.anticipo_pesos) setAntPesos(Number(datos.anticipo_pesos));
+      if (datos.anticipo_usd) setAntUsd(Number(datos.anticipo_usd));
       if (datos.usado) { setCheckUsado(true); setTasacion(Number(datos.usado)); }
       if (datos.financiar !== undefined) setFinanciar(Boolean(datos.financiar));
       
@@ -196,7 +197,7 @@ function App() {
   };
 
   const guardarEnCRM = () => {
-    alert(`Guardando en CRM:\nCliente: ${nombreCliente}\nTeléfono: ${telefonoCliente}\nModelo: ${dm.nombre}\nDiferencia: ${nf(esUsd ? dif / tc : dif)}`);
+    alert(`Guardando en CRM:\nCliente: ${nombreCliente}\nTeléfono: ${telefonoCliente}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
   };
 
   return (
@@ -296,7 +297,7 @@ function App() {
         <div className="col">
           <div className="card big">
             <h2>Diferencia a abonar</h2>
-            <div className="cuota">{nf(esUsd ? dif / tc : dif)}</div>
+            <div className="cuota">{nf(dif)}</div>
           </div>
 
           <div className="card">
