@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import './App.css';
 
 const MODELOS = [
@@ -87,20 +87,17 @@ function App() {
   const patMonto = patenta === "con" ? dm.pat : 0;
   const total = precioBase + dm.fyf + patMonto;
   
-  // Convertimos a la moneda del vehículo para la resta
   const totalEnMoneda = total;
   const anticipoEnMoneda = esUsd ? (antUsd + (antPesos / (tc || 1))) : (antPesos + (antUsd * tc));
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : tasacion / (tc || 1)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = totalEnMoneda - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
-
-  // Equivalente en pesos de la diferencia
   const difEnPesos = esUsd ? dif * tc : dif;
 
   const lineasValidas = LINEAS.filter(l => !l.aplica || l.aplica.some(a => dm.nombre.includes(a)));
   
   let mejores = [];
   if (financiar && dif > 0) {
-    const difArs = esUsd ? dif * tc : dif;
+    const difArs = difEnPesos; // Usamos la diferencia en pesos para comparar con los topes
     const opciones = [];
     lineasValidas.forEach((l, i) => {
       l.r.forEach(r => {
@@ -126,7 +123,7 @@ function App() {
   
   let resumenFin = null;
   if (financiar && dif > 0) {
-    const difArs = esUsd ? dif * tc : dif;
+    const difArs = difEnPesos;
     const tna = plazoData[1];
     const quebranto = plazoData[2] * 1.21;
     const gasto = difArs * (quebranto / 100);
@@ -145,20 +142,28 @@ function App() {
 
   const handleIA = async () => {
     if (!iaInput.trim()) return;
+    const msgUser = iaInput;
     setIaOutput("Conectando...");
+    setIaHistorial(prev => [...prev, { role: "user", content: msgUser }]);
+
     try {
       const res = await fetch("https://cotizador-byd.onrender.com/api/ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: iaInput, historial: iaHistorial })
+        body: JSON.stringify({ prompt: msgUser, historial: iaHistorial })
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
-      if (data.error) { setIaOutput("Error: " + data.error); return; }
+      
+      if (data.error) { 
+        setIaOutput("Error: " + data.error);
+        setIaHistorial(prev => [...prev, { role: "assistant", content: "Error: " + data.error }]);
+        return; 
+      }
 
       if (data.pregunta) {
         setIaOutput(data.pregunta);
-        setIaHistorial(prev => [...prev, { role: "user", content: iaInput }, { role: "assistant", content: data.pregunta }]);
+        setIaHistorial(prev => [...prev, { role: "assistant", content: data.pregunta }]);
         setIaInput("");
         return;
       }
@@ -172,7 +177,6 @@ function App() {
           if (busq.includes("dolphin") && nom.includes("dolphin")) {
             if (busq.includes("gs") && nom.includes("gs")) return true;
             if (busq.includes("gl") && nom.includes("gl")) return true;
-            if (!busq.includes("gs") && !busq.includes("gl") && nom.includes("gs")) return true;
             return false;
           }
           if (busq.includes("song") && nom.includes("song")) return true;
@@ -202,15 +206,57 @@ function App() {
       if (datos.financiar !== undefined) setFinanciar(Boolean(datos.financiar));
       
       setIaOutput("¡Datos cargados exitosamente!");
-      setIaHistorial([]); 
+      setIaHistorial(prev => [...prev, { role: "assistant", content: "Datos cargados exitosamente." }]);
       setIaInput("");
     } catch (e) {
       setIaOutput("Fallo: " + e.message);
+      setIaHistorial(prev => [...prev, { role: "assistant", content: "Fallo: " + e.message }]);
     }
   };
 
-  const guardarEnCRM = () => {
-    alert(`Guardando en CRM:\nCliente: ${nombreCliente}\nTeléfono: ${telefonoCliente}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
+  const generarMensaje = () => {
+    let msg = `Hola! Te paso la cotización de tu *BYD ${dm.nombre}*:\n\n`;
+    msg += `*Precio de Lista:* ${nf(dm.precio)}\n`;
+    if (bonifEfectiva > 0) msg += `*Bonificación aplicada:* - ${nf(bonifEfectiva)}\n`;
+    msg += `*Fletes y Formularios:* ${nf(dm.fyf)}\n`;
+    if (patenta === "con") msg += `*Patentamiento:* ${nf(patMonto)}\n`;
+    msg += `*Total a Abonar:* ${nf(total)}\n\n`;
+    
+    if (antPesos > 0 || antUsd > 0) {
+      msg += `*FORMA DE PAGO:*\n`;
+      if (antPesos > 0) msg += `• Anticipo en Pesos: $ ${antPesos.toLocaleString("es-AR")}\n`;
+      if (antUsd > 0) msg += `• Anticipo en Dólares: USD ${antUsd.toLocaleString("es-AR")}\n`;
+    }
+    if (checkUsado) {
+      msg += `• Vehículo en parte de pago: $ ${tasacion.toLocaleString("es-AR")} (${monedaUsado})\n`;
+    }
+    msg += `*Diferencia a abonar:* ${nf(dif)}\n`;
+
+    if (resumenFin) {
+      msg += `\n*FINANCIACIÓN (Banco Santander):*\n`;
+      msg += `• Línea: ${resumenFin.linea}\n`;
+      msg += `• Plazo: ${resumenFin.plazo} meses\n`;
+      msg += `• A financiar: ${f(resumenFin.aFinanciar)}\n`;
+      msg += `• Cuota inicial: ${f(resumenFin.cuota)}\n`;
+    }
+    msg += `\n*Los valores están sujetos a la lista vigente y aprobación crediticia. No incluye seguro.*\n`;
+    return msg;
+  };
+
+  const msgFinal = generarMensaje();
+
+  const copiarMensaje = () => {
+    navigator.clipboard.writeText(msgFinal);
+    alert("Mensaje copiado al portapapeles");
+  };
+
+  const enviarWhatsApp = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(msgFinal)}`;
+    window.open(url, '_blank');
+  };
+
+  const descargarPDF = () => {
+    window.print();
   };
 
   return (
@@ -222,6 +268,13 @@ function App() {
 
       <div className="asistente-card">
         <h2>Asistente IA</h2>
+        <div className="historial-chat">
+          {iaHistorial.map((h, i) => (
+            <div key={i} className={`chat-msg ${h.role}`}>
+              <b>{h.role === "user" ? "Vos:" : "Asistente:"}</b> {h.content}
+            </div>
+          ))}
+        </div>
         <textarea 
           value={iaInput} 
           onChange={(e) => setIaInput(e.target.value)} 
@@ -234,7 +287,7 @@ function App() {
         >
           Nueva consulta
         </button>
-        {iaOutput && <p className="ia-output" style={{color: iaOutput.includes("Error") || iaOutput.includes("Fallo") ? "#EF4444" : "#3B82F6"}}>{iaOutput}</p>}
+        {iaOutput && !iaHistorial.length && <p className="ia-output">{iaOutput}</p>}
       </div>
 
       <div className="layout-grid">
@@ -313,11 +366,6 @@ function App() {
                 </div>
               </div>
             )}
-            {checkUsado && tc > 0 && (
-               <div className="conv">
-                 {monedaUsado === "ars" ? `≈ USD ${Math.round(tasacion / tc).toLocaleString("es-AR")}` : `≈ $ ${Math.round(tasacion * tc).toLocaleString("es-AR")}`}
-               </div>
-            )}
           </div>
         </div>
 
@@ -389,6 +437,15 @@ function App() {
                 </div>
               </>
             )}
+          </div>
+
+          <div className="card">
+            <h2>Acciones</h2>
+            <div className="acciones">
+              <button className="btn-sec" onClick={copiarMensaje}>Copiar Mensaje</button>
+              <button className="btn-sec" onClick={enviarWhatsApp}>Enviar WhatsApp</button>
+              <button className="btn-sec" onClick={descargarPDF}>Descargar PDF</button>
+            </div>
           </div>
 
           <button className="btn-guardar" onClick={guardarEnCRM}>Guardar Cotización en CRM</button>
