@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard } from 'react-icons/fa';
 import './App.css';
 
 const f = (n) => "$ " + Math.round(n).toLocaleString("es-AR");
@@ -26,37 +27,27 @@ function frances(mo, tna, n) {
 }
 
 const ESTADO_INICIAL = {
-  modeloIdx: 0,
-  patenta: "con",
-  tc: 1450,
-  aplicarBonif: false,
-  bonifMonto: 0,
-  antPesos: 0,
-  antUsd: 0,
-  checkUsado: false,
-  tasacion: 0,
-  monedaUsado: "ars",
-  financiar: false,
-  lineaIdx: 0,
-  plazo: 12,
-  prioridad: "cuota",
-  nombreCliente: "",
-  telefonoCliente: "",
-  iaInput: "",
-  iaOutput: "",
-  iaHistorial: []
+  modeloIdx: 0, patenta: "con", tc: 1450, aplicarBonif: false, bonifMonto: 0,
+  antPesos: 0, antUsd: 0, checkUsado: false, tasacion: 0, monedaUsado: "ars",
+  financiar: false, lineaIdx: 0, plazo: 12, prioridad: "cuota",
+  nombreCliente: "", telefonoCliente: "", iaInput: "", iaOutput: "", iaHistorial: []
 };
 
 export default function App() {
+  // --- SESIÓN Y NAVEGACIÓN ---
+  const [logueado, setLogueado] = useState(false);
+  const [vista, setVista] = useState("cotizador"); 
+  const [pestanaActiva, setPestanaActiva] = useState(1); // 1: Vehículo, 2: Pago, 3: Financiación
+  
+  // --- DATOS ---
   const [modelos, setModelos] = useState([]);
   const [lineas, setLineas] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [modoAdmin, setModoAdmin] = useState(false);
 
+  // --- FORMULARIO ---
   const [modeloIdx, setModeloIdx] = useState(ESTADO_INICIAL.modeloIdx);
   const [patenta, setPatenta] = useState(ESTADO_INICIAL.patenta);
   const [tc, setTc] = useState(ESTADO_INICIAL.tc);
-
   const [aplicarBonif, setAplicarBonif] = useState(ESTADO_INICIAL.aplicarBonif);
   const [bonifMonto, setBonifMonto] = useState(ESTADO_INICIAL.bonifMonto);
   const [antPesos, setAntPesos] = useState(ESTADO_INICIAL.antPesos);
@@ -64,12 +55,10 @@ export default function App() {
   const [checkUsado, setCheckUsado] = useState(ESTADO_INICIAL.checkUsado);
   const [tasacion, setTasacion] = useState(ESTADO_INICIAL.tasacion);
   const [monedaUsado, setMonedaUsado] = useState(ESTADO_INICIAL.monedaUsado);
-
   const [financiar, setFinanciar] = useState(ESTADO_INICIAL.financiar);
   const [lineaIdx, setLineaIdx] = useState(ESTADO_INICIAL.lineaIdx);
   const [plazo, setPlazo] = useState(ESTADO_INICIAL.plazo);
   const [prioridad, setPrioridad] = useState(ESTADO_INICIAL.prioridad);
-
   const [nombreCliente, setNombreCliente] = useState(ESTADO_INICIAL.nombreCliente);
   const [telefonoCliente, setTelefonoCliente] = useState(ESTADO_INICIAL.telefonoCliente);
   const [iaInput, setIaInput] = useState(ESTADO_INICIAL.iaInput);
@@ -80,6 +69,7 @@ export default function App() {
   const API_URL = "https://cotizador-byd.onrender.com";
 
   useEffect(() => {
+    if (!logueado) return;
     const fetchData = async () => {
       try {
         const [resModelos, resLineas, resConfig] = await Promise.all([
@@ -87,56 +77,51 @@ export default function App() {
           fetch(`${API_URL}/api/lineas`),
           fetch(`${API_URL}/api/config`)
         ]);
-        
-        const dataModelos = await resModelos.json();
-        const dataLineas = await resLineas.json();
+        setModelos(await resModelos.json());
+        setLineas(await resLineas.json());
         const dataConfig = await resConfig.json();
-
-        setModelos(dataModelos);
-        setLineas(dataLineas);
-        
-        if (dataConfig.dolar_agencia) {
-          setTc(dataConfig.dolar_agencia);
-        }
+        if (dataConfig.dolar_agencia) setTc(dataConfig.dolar_agencia);
       } catch (e) {
-        console.error("Error cargando datos de BD", e);
+        console.error("Error cargando datos", e);
       } finally {
         setCargando(false);
       }
     };
     fetchData();
-  }, []);
+  }, [logueado]);
 
-  if (cargando) {
-    return <div className="app-container" style={{textAlign: 'center', marginTop: '50px'}}><h2>Cargando cotizador...</h2></div>;
+  if (!logueado) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="login-logo"><FaCar size={40} color="#3B82F6" /></div>
+          <h1>BYD Cotizador</h1>
+          <p>Ingresá tus credenciales para acceder al sistema.</p>
+          <input type="email" placeholder="Email (ej: vendedor@byd.com)" />
+          <input type="password" placeholder="Contraseña" />
+          <button onClick={() => setLogueado(true)}>Ingresar al Sistema</button>
+          <span className="login-hint">* Cualquier mail/clave entra (Demo)</span>
+        </div>
+      </div>
+    );
   }
 
+  if (cargando) return <div className="loading-screen">Cargando base de datos...</div>;
+
   const dm = modelos[modeloIdx] || modelos[0];
-  if (!dm) return <div>Error: No hay modelos cargados en la base de datos.</div>;
+  if (!dm) return <div className="loading-screen">Error: No hay modelos cargados en Supabase.</div>;
 
   const esUsd = dm.moneda === "USD";
   const nf = esUsd ? u : f;
-
   const bonifEfectiva = aplicarBonif ? (bonifMonto > 0 ? Math.min(bonifMonto, dm.precio) : dm.bonif) : 0;
-  const precioBase = dm.precio - bonifEfectiva;
-  const patMonto = patenta === "con" ? dm.pat : 0;
-  const total = precioBase + dm.fyf + patMonto;
-
-  const anticipoEnMoneda = esUsd
-    ? (antUsd + (tc > 0 ? antPesos / tc : 0))
-    : (antPesos + (antUsd * tc));
-
-  const usadoEnMoneda = esUsd
-    ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0))
-    : (monedaUsado === "usd" ? tasacion * tc : tasacion);
-
+  const total = (dm.precio - bonifEfectiva) + dm.fyf + (patenta === "con" ? dm.pat : 0);
+  const anticipoEnMoneda = esUsd ? (antUsd + (tc > 0 ? antPesos / tc : 0)) : (antPesos + (antUsd * tc));
+  const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
-
-  const lineasValidas = lineas.filter(l => !l.aplica_a || l.aplica_a.length === 0 || l.aplica_a.some(a => dm.nombre.includes(a)));
   
+  const lineasValidas = lineas.filter(l => !l.aplica_a || l.aplica_a.length === 0 || l.aplica_a.some(a => dm.nombre.includes(a)));
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
   const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0];
-
   const plazosDisponibles = lineaSel ? lineaSel.plazos.map(r => r[0]) : [];
   const plazoFinal = plazosDisponibles.includes(plazo) ? plazo : plazosDisponibles[0];
   const plazoData = lineaSel ? (lineaSel.plazos.find(r => r[0] === plazoFinal) || lineaSel.plazos[0]) : null;
@@ -144,70 +129,37 @@ export default function App() {
   let mejores = [];
   if (financiar && dif > 0) {
     const difArs = esUsd ? dif * tc : dif;
-    const opciones = [];
     lineasValidas.forEach((l, i) => {
       l.plazos.forEach(r => {
         const tna = r[1];
         const quebranto = r[2] * 1.21;
         const gast = difArs * (quebranto / 100);
         const fr = frances(difArs, tna, r[0]);
-        const tope = r[3] ? r[3] : Infinity;
-        if (difArs <= tope) {
-          const ponArs = difArs + gast; 
-          opciones.push({
-            l, i, r,
-            cuota: fr.first,
-            gast,
-            pon: ponArs,
-            costo: fr.sum - difArs + gast
-          });
+        if (difArs <= (r[3] || Infinity)) {
+          mejores.push({ l, i, r, cuota: fr.first, gast, pon: difArs + gast, costo: fr.sum - difArs + gast });
         }
       });
     });
-    if (prioridad === "cuota") opciones.sort((a, b) => a.cuota - b.cuota);
-    else if (prioridad === "inicial") opciones.sort((a, b) => a.pon - b.pon);
-    else opciones.sort((a, b) => a.costo - b.costo);
-    mejores = opciones;
+    if (prioridad === "cuota") mejores.sort((a, b) => a.cuota - b.cuota);
+    else if (prioridad === "inicial") mejores.sort((a, b) => a.pon - b.pon);
+    else mejores.sort((a, b) => a.costo - b.costo);
   }
 
   let resumenFin = null;
   if (financiar && dif > 0 && plazoData) {
     const difArs = esUsd ? dif * tc : dif;
-    const tna = plazoData[1];
     const quebranto = plazoData[2] * 1.21;
     const gasto = difArs * (quebranto / 100);
-    const fr = frances(difArs, tna, plazoFinal);
-    resumenFin = {
-      linea: lineaSel.nombre,
-      plazo: plazoFinal,
-      aFinanciar: difArs,
-      gasto: gasto,
-      cuota: fr.first,
-      ultimaCuota: fr.last,
-      totalCuotas: fr.sum,
-      tope: plazoData[3] || null
-    };
+    const fr = frances(difArs, plazoData[1], plazoFinal);
+    resumenFin = { linea: lineaSel.nombre, plazo: plazoFinal, aFinanciar: difArs, gasto, cuota: fr.first, ultimaCuota: fr.last, totalCuotas: fr.sum, tope: plazoData[3] };
   }
 
   const resetFormulario = () => {
-    setModeloIdx(ESTADO_INICIAL.modeloIdx);
-    setPatenta(ESTADO_INICIAL.patenta);
-    setAplicarBonif(ESTADO_INICIAL.aplicarBonif);
-    setBonifMonto(ESTADO_INICIAL.bonifMonto);
-    setAntPesos(ESTADO_INICIAL.antPesos);
-    setAntUsd(ESTADO_INICIAL.antUsd);
-    setCheckUsado(ESTADO_INICIAL.checkUsado);
-    setTasacion(ESTADO_INICIAL.tasacion);
-    setMonedaUsado(ESTADO_INICIAL.monedaUsado);
-    setFinanciar(ESTADO_INICIAL.financiar);
-    setLineaIdx(ESTADO_INICIAL.lineaIdx);
-    setPlazo(ESTADO_INICIAL.plazo);
-    setPrioridad(ESTADO_INICIAL.prioridad);
-    setNombreCliente(ESTADO_INICIAL.nombreCliente);
-    setTelefonoCliente(ESTADO_INICIAL.telefonoCliente);
-    setIaInput(ESTADO_INICIAL.iaInput);
-    setIaOutput(ESTADO_INICIAL.iaOutput);
-    setIaHistorial([]);
+    setModeloIdx(0); setPatenta("con"); setAplicarBonif(false); setBonifMonto(0);
+    setAntPesos(0); setAntUsd(0); setCheckUsado(false); setTasacion(0); setMonedaUsado("ars");
+    setFinanciar(false); setLineaIdx(0); setPlazo(12); setPrioridad("cuota");
+    setNombreCliente(""); setTelefonoCliente(""); setIaInput(""); setIaOutput(""); setIaHistorial([]);
+    setPestanaActiva(1);
   };
 
   const handleIA = async () => {
@@ -219,11 +171,9 @@ export default function App() {
 
     try {
       const res = await fetch(`${API_URL}/api/ia`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: promptActual, historial: iaHistorial })
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       if (data.error) { setIaOutput("Error: " + data.error); return; }
 
@@ -234,365 +184,292 @@ export default function App() {
       }
 
       const datos = JSON.parse(data.respuesta);
-
       if (datos.modelo) {
         const busq = datos.modelo.toLowerCase();
         const idx = modelos.findIndex(m => {
           const nom = m.nombre.toLowerCase();
-          if (busq.includes("dolphin") && nom.includes("dolphin")) {
-            if (busq.includes("gs") && nom.includes("gs")) return true;
-            if (busq.includes("gl") && nom.includes("gl")) return true;
-            if (!busq.includes("gs") && !busq.includes("gl") && nom.includes("gs")) return true;
-            return false;
-          }
-          if (busq.includes("song") && nom.includes("song")) {
-            if (busq.includes("gs") && nom.includes("gs")) return true;
-            if (busq.includes("gl") && nom.includes("gl")) return true;
-            return false;
-          }
-          if (busq.includes("yuan") && nom.includes("yuan")) {
-            if (busq.includes("gs") && nom.includes("gs")) return true;
-            if (busq.includes("gl") && nom.includes("gl")) return true;
-            return false;
-          }
-          if (busq.includes("atto") && nom.includes("atto")) return true;
-          if (busq.includes("seal") && nom.includes("seal")) return true;
-          if (busq.includes("shark") && nom.includes("shark")) return true;
-          if (busq.includes("ti7") && nom.includes("ti7")) return true;
-          return false;
+          if (busq.includes("dolphin") && nom.includes("dolphin")) return busq.includes("gl") ? nom.includes("gl") : nom.includes("gs");
+          if (busq.includes("song") && nom.includes("song")) return busq.includes("gl") ? nom.includes("gl") : nom.includes("gs");
+          if (busq.includes("yuan") && nom.includes("yuan")) return busq.includes("gl") ? nom.includes("gl") : nom.includes("gs");
+          return busq.includes("atto") ? nom.includes("atto") : busq.includes("seal") ? nom.includes("seal") : busq.includes("shark") ? nom.includes("shark") : busq.includes("ti7") ? nom.includes("ti7") : false;
         });
-
         if (idx >= 0) {
           setModeloIdx(idx);
-          if (datos.aplicar_bonif) {
-            const nuevoModelo = modelos[idx];
-            if (nuevoModelo.bonif > 0) {
-              setAplicarBonif(true);
-              setBonifMonto(nuevoModelo.bonif);
-            }
-          }
+          if (datos.aplicar_bonif && modelos[idx].bonif > 0) { setAplicarBonif(true); setBonifMonto(modelos[idx].bonif); }
         }
       }
-
       if (datos.anticipo_pesos !== undefined) setAntPesos(Number(datos.anticipo_pesos));
       if (datos.anticipo_usd !== undefined) setAntUsd(Number(datos.anticipo_usd));
       if (datos.usado) { setCheckUsado(true); setTasacion(Number(datos.usado)); }
       if (datos.financiar !== undefined) setFinanciar(Boolean(datos.financiar));
 
-      const okMsg = "¡Datos cargados exitosamente!";
-      setIaOutput(okMsg);
-      setIaHistorial(prev => [...prev, { role: "assistant", content: okMsg }]);
-    } catch (e) {
-      setIaOutput("Fallo: " + e.message);
-      setIaHistorial(prev => [...prev, { role: "assistant", content: "Fallo: " + e.message }]);
-    }
-  };
-
-  const guardarEnCRM = () => {
-    alert(`Guardando en CRM:\nCliente: ${nombreCliente || "(sin nombre)"}\nTeléfono: ${telefonoCliente || "(sin teléfono)"}\nModelo: ${dm.nombre}\nDiferencia: ${nf(dif)}`);
+      setIaOutput("¡Datos cargados exitosamente!");
+      setIaHistorial(prev => [...prev, { role: "assistant", content: "¡Datos cargados exitosamente!" }]);
+    } catch (e) { setIaOutput("Fallo: " + e.message); }
   };
 
   const guardarDolar = async () => {
-    try {
-      await fetch(`${API_URL}/api/admin/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clave: "dolar_agencia", valor: tc })
-      });
-      alert("Dólar guardado correctamente.");
-    } catch (e) {
-      alert("Error guardando el dólar");
-    }
+    await fetch(`${API_URL}/api/admin/config`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: "dolar_agencia", valor: tc }) });
+    alert("Dólar guardado");
   };
 
   const actualizarTasa = async (lineaId, indexPlazo, nuevaTasa) => {
     const linea = lineas.find(l => l.id === lineaId);
     const nuevosPlazos = JSON.parse(JSON.stringify(linea.plazos));
     nuevosPlazos[indexPlazo][1] = Number(nuevaTasa);
-    
-    try {
-      await fetch(`${API_URL}/api/admin/lineas/${lineaId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plazos: nuevosPlazos, activo: linea.activo })
-      });
-      alert("Tasa actualizada. Refrescá la página (F5) para ver los cambios reflejados.");
-    } catch (e) {
-      alert("Error actualizando la tasa");
-    }
+    await fetch(`${API_URL}/api/admin/lineas/${lineaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plazos: nuevosPlazos, activo: linea.activo }) });
+    alert("Tasa actualizada");
   };
 
   return (
-    <div className="app-container">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1>Cotizador BYD 0 km</h1>
-          <p className="sub">Lista de precios 2026 · Banco Santander</p>
+    <div className="app-layout">
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+        <div className="sidebar-logo"><FaCar size={24} color="#3B82F6" /> <span>BYD</span></div>
+        <nav className="sidebar-nav">
+          <button className={vista === "cotizador" ? "active" : ""} onClick={() => setVista("cotizador")}><FaCar /> Cotizador</button>
+          <button className={vista === "admin" ? "active" : ""} onClick={() => setVista("admin")}><FaCog /> Administración</button>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="avatar"><FaUser /></div>
+            <div><b>Vendedor Demo</b><span>vendedor@byd.com</span></div>
+          </div>
+          <button className="logout-btn" onClick={() => setLogueado(false)}><FaSignOutAlt /> Salir</button>
         </div>
-        <button 
-          onClick={() => setModoAdmin(!modoAdmin)} 
-          style={{ background: modoAdmin ? '#EF4444' : 'transparent', border: '1px solid #334155', color: '#fff', fontSize: '12px', padding: '6px 10px' }}
-        >
-          {modoAdmin ? "Salir de Modo Admin" : "Modo Admin"}
-        </button>
-      </header>
+      </aside>
 
-      {modoAdmin && (
-        <div className="card" style={{ border: '2px solid #EF4444', marginBottom: '20px' }}>
-          <h2 style={{ color: '#EF4444' }}>⚙️ Panel de Administración</h2>
-          
-          <div style={{ marginBottom: '20px' }}>
-            <label><b>Dólar Agencia (Valor por defecto)</b></label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
-              <button onClick={guardarDolar} style={{ background: '#10B981' }}>Guardar Dólar</button>
+      {/* CONTENIDO PRINCIPAL */}
+      <main className="main-content">
+        {vista === "admin" ? (
+          <div className="admin-view">
+            <h1>Configuración del Sistema</h1>
+            <p className="sub">Los cambios acá afectan a todos los vendedores.</p>
+            
+            <div className="card" style={{ borderTop: '3px solid #3B82F6' }}>
+              <h2>Cotización del Dólar</h2>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', maxWidth: '400px' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Valor Dólar Agencia</label>
+                  <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
+                </div>
+                <button onClick={guardarDolar}>Guardar Dólar</button>
+              </div>
             </div>
-          </div>
 
-          <label><b>Líneas de Financiación (Editar TNA %)</b></label>
-          <div style={{ display: 'grid', gap: '15px', marginTop: '10px' }}>
-            {lineas.map(l => (
-              <div key={l.id} style={{ background: '#0F172A', padding: '15px', borderRadius: '8px' }}>
-                <h3 style={{ fontSize: '14px', margin: '0 0 10px 0' }}>{l.nombre}</h3>
-                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                  {l.plazos.map((p, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#1E293B', padding: '5px 10px', borderRadius: '4px' }}>
-                      <span style={{ fontSize: '12px' }}>{p[0]}m:</span>
-                      <input 
-                        type="number" 
-                        defaultValue={p[1]} 
-                        step="0.1"
-                        style={{ width: '70px', padding: '4px', fontSize: '12px' }}
-                        onBlur={(e) => actualizarTasa(l.id, idx, e.target.value)}
-                      />
-                      <span style={{ fontSize: '12px' }}>%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="asistente-card">
-        <h2>Asistente IA</h2>
-        <textarea
-          value={iaInput}
-          onChange={(e) => setIaInput(e.target.value)}
-          placeholder="Ej: Quiere una Song Pro, entrega 10 palos y financia el resto..."
-        />
-        <div className="ia-botones">
-          <button onClick={handleIA}>Armar cotización</button>
-          <button className="btn-secundario" onClick={resetFormulario}>Nueva consulta</button>
-        </div>
-        {iaHistorial.length > 0 && (
-          <div className="chat-historial" ref={chatRef}>
-            {iaHistorial.map((m, i) => (
-              <div key={i} className={`chat-msg ${m.role}`}>
-                <b>{m.role === "user" ? "Vos" : "IA"}:</b> {m.content}
-              </div>
-            ))}
-          </div>
-        )}
-        {iaOutput && !iaHistorial.length && (
-          <p className="ia-output">{iaOutput}</p>
-        )}
-      </div>
-
-      <div className="layout-grid">
-        <div className="col">
-          <div className="card">
-            <h2>Vehículo</h2>
-            <label>Modelo</label>
-            <select
-              key={`modelo-${modeloIdx}`}
-              value={modeloIdx}
-              onChange={(e) => setModeloIdx(Number(e.target.value))}
-            >
-              {modelos.map((m, i) => <option key={i} value={i}>{m.nombre}</option>)}
-            </select>
-
-            {dm.bonif > 0 && (
-              <div style={{ marginTop: '10px' }}>
-                <label className="switch">
-                  <input type="checkbox" checked={aplicarBonif} onChange={(e) => setAplicarBonif(e.target.checked)} />
-                  <span>Aplicar bonificación</span>
-                </label>
-                {aplicarBonif && (
-                  <>
-                    <label>Monto bonif. ({dm.moneda})</label>
-                    <input 
-                      type="text" 
-                      value={bonifMonto === 0 ? "" : bonifMonto} 
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, ""); // Solo números
-                        setBonifMonto(val ? Number(val) : 0);
-                      }} 
-                      placeholder={`Ej: ${dm.bonif}`}
-                    />
-                    {/* AQUÍ ESTÁ EL ARREGLO: Usa el código del modelo por defecto, no el input */}
-                    <div className="codigo-disfrazado">Código: {cod(dm.bonif)}</div>
-                  </>
-                )}
-              </div>
-            )}
-
-            <label>Patentamiento</label>
-            <select value={patenta} onChange={(e) => setPatenta(e.target.value)}>
-              <option value="con">Concesionario</option>
-              <option value="cli">Cliente</option>
-            </select>
-
-            <div className="resumen" style={{ marginTop: '15px' }}>
-              <div className="row"><span>Precio Lista:</span> <span>{nf(dm.precio)}</span></div>
-              {bonifEfectiva > 0 && <div className="row"><span>Bonificación:</span> <span>- {nf(bonifEfectiva)}</span></div>}
-              <div className="row"><span>FyF:</span> <span>{nf(dm.fyf)}</span></div>
-              {patenta === "con" && <div className="row"><span>Patentamiento:</span> <span>{nf(patMonto)}</span></div>}
-              <div className="row total"><span>Total:</span> <span>{nf(total)}</span></div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h2>Pago</h2>
-            <label>Dólar Agencia ($)</label>
-            <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} disabled={!modoAdmin} style={{ opacity: !modoAdmin ? 0.7 : 1 }} />
-            {!modoAdmin && <span style={{fontSize: '11px', color: '#94A3B8'}}>* Solo editable en Modo Admin</span>}
-
-            <label>Anticipo en Pesos ($)</label>
-            <input type="number" value={antPesos} onChange={(e) => setAntPesos(Number(e.target.value))} />
-            <div className="conv-hint">≈ {u(tc > 0 ? antPesos / tc : 0)}</div>
-
-            <label>Anticipo en Dólares (USD)</label>
-            <input type="number" value={antUsd} onChange={(e) => setAntUsd(Number(e.target.value))} />
-            <div className="conv-hint">≈ {f(antUsd * tc)}</div>
-
-            <label className="switch">
-              <input type="checkbox" checked={checkUsado} onChange={(e) => setCheckUsado(e.target.checked)} />
-              <span>Entrego vehículo en parte de pago</span>
-            </label>
-            {checkUsado && (
-              <div className="two">
-                <div>
-                  <label>Tasación</label>
-                  <input type="number" value={tasacion} onChange={(e) => setTasacion(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Moneda</label>
-                  <select value={monedaUsado} onChange={(e) => setMonedaUsado(e.target.value)}>
-                    <option value="ars">Pesos</option>
-                    <option value="usd">Dólares</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            <div className="resumen" style={{ marginTop: '15px' }}>
-              <div className="row"><span>Anticipo total ({dm.moneda}):</span> <span>{nf(anticipoEnMoneda)}</span></div>
-              {checkUsado && <div className="row"><span>Usado ({dm.moneda}):</span> <span>{nf(usadoEnMoneda)}</span></div>}
-            </div>
-          </div>
-
-          <div className="card">
-            <h2>Cliente</h2>
-            <label>Nombre</label>
-            <input type="text" value={nombreCliente} onChange={(e) => setNombreCliente(e.target.value)} placeholder="Juan Pérez" />
-            <label>Teléfono</label>
-            <input type="text" value={telefonoCliente} onChange={(e) => setTelefonoCliente(e.target.value)} placeholder="5491123456789" />
-          </div>
-        </div>
-
-        <div className="col">
-          <div className="card big">
-            <h2>Diferencia a abonar</h2>
-            <div className="cuota">{nf(dif)}</div>
-            {esUsd && <div className="conv-hint" style={{marginTop: 8}}>≈ {f(dif * tc)}</div>}
-            {!esUsd && <div className="conv-hint" style={{marginTop: 8}}>≈ {u(tc > 0 ? dif / tc : 0)}</div>}
-          </div>
-
-          <div className="card">
-            <label className="switch">
-              <input type="checkbox" checked={financiar} onChange={(e) => setFinanciar(e.target.checked)} />
-              <span>Financiar la diferencia</span>
-            </label>
-
-            {financiar && (
-              <>
-                <label>Línea Santander</label>
-                <select value={lineaIdxSeguro} onChange={(e) => setLineaIdx(Number(e.target.value))}>
-                  {lineasValidas.map((l, i) => <option key={i} value={i}>{l.nombre}</option>)}
-                </select>
-
-                <label>Plazo</label>
-                <div className="chips">
-                  {lineaSel.plazos.map(r => (
-                    <button
-                      key={r[0]}
-                      className={plazoFinal === r[0] ? "chip active" : "chip"}
-                      onClick={() => setPlazo(r[0])}
-                    >
-                      {r[0]}
-                    </button>
-                  ))}
-                </div>
-
-                {resumenFin && (
-                  <div className="detalle-financiacion">
-                    <h2 style={{ marginTop: '15px' }}>Detalle de la Opción</h2>
-                    <div className="row"><span>Línea:</span> <span>{resumenFin.linea}</span></div>
-                    <div className="row"><span>Plazo:</span> <span>{resumenFin.plazo} meses</span></div>
-                    <div className="row"><span>A financiar:</span> <span>{f(resumenFin.aFinanciar)}</span></div>
-                    <div className="row mut"><span>Gasto de otorgamiento:</span> <span>{f(resumenFin.gasto)}</span></div>
-                    <div className="row"><span>Cuota inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
-                    <div className="row mut"><span>Última cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
-                    <div className="row mut"><span>Total de cuotas:</span> <span>{f(resumenFin.totalCuotas)}</span></div>
-                    {resumenFin.tope && <div className="row mut"><span>Tope:</span> <span>{f(resumenFin.tope)}</span></div>}
+            <h2 style={{ marginTop: '30px' }}>Líneas Santander</h2>
+            <div className="admin-grid">
+              {lineas.map(l => (
+                <div key={l.id} className="card">
+                  <h3>{l.nombre}</h3>
+                  <div className="admin-plazos">
+                    {l.plazos.map((p, idx) => (
+                      <div key={idx} className="admin-plazo-item">
+                        <span>{p[0]}m</span>
+                        <input type="number" defaultValue={p[1]} step="0.1" onBlur={(e) => actualizarTasa(l.id, idx, e.target.value)} />
+                        <span>%</span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="cotizador-layout">
+            
+            {/* HEADER SUPERIOR FIJO */}
+            <header className="top-header">
+              <div>
+                <h1>Cotizador BYD</h1>
+                <p className="sub">Cliente: <b>{nombreCliente || "Sin nombre"}</b> | Modelo: <b>{dm.nombre}</b></p>
+              </div>
+              <button className="btn-reset" onClick={resetFormulario}>Nueva Consulta</button>
+            </header>
 
-                <h2 style={{ marginTop: '20px' }}>Mejores opciones</h2>
-                <label>Qué prioriza el cliente</label>
-                <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-                  <option value="cuota">Cuota más baja</option>
-                  <option value="inicial">Poner menos al inicio</option>
-                  <option value="costo">Menor costo total</option>
-                </select>
+            {/* ASISTENTE IA (Más compacto) */}
+            <div className="ia-card">
+              <div className="ia-header"><FaRobot size={18} color="#3B82F6"/> <b>Asistente IA</b> <span className="ia-hint">(Escribí "Quiere un Atto 2 con 10 palos")</span></div>
+              <div className="ia-chat">
+                {iaHistorial.map((m, i) => (
+                  <div key={i} className={`chat-msg ${m.role}`}>{m.content}</div>
+                ))}
+              </div>
+              <div className="ia-input-row">
+                <input type="text" value={iaInput} onChange={(e) => setIaInput(e.target.value)} placeholder="Describí la operación..." onKeyDown={(e) => e.key === 'Enter' && handleIA()} />
+                <button onClick={handleIA}>Procesar</button>
+              </div>
+            </div>
 
-                <div className="lista-opciones">
-                  {mejores.length === 0 && (
-                    <div className="opcion-card">
-                      <div className="opcion-info">
-                        <b>Sin opciones disponibles</b>
-                        <span>La diferencia supera los topes o no hay líneas válidas.</span>
+            <div className="grid-columns">
+              {/* COLUMNA IZQUIERDA: FORMULARIO CON PESTAÑAS */}
+              <div className="col-form">
+                <div className="tabs-header">
+                  <button className={pestanaActiva === 1 ? "active" : ""} onClick={() => setPestanaActiva(1)}><FaCar /> 1. Vehículo</button>
+                  <button className={pestanaActiva === 2 ? "active" : ""} onClick={() => setPestanaActiva(2)}><FaMoneyBillWave /> 2. Pago</button>
+                  <button className={pestanaActiva === 3 ? "active" : ""} onClick={() => setPestanaActiva(3)}><FaCreditCard /> 3. Financiación</button>
+                </div>
+
+                <div className="tab-content">
+                  {pestanaActiva === 1 && (
+                    <div className="card">
+                      <h2>Configuración del Vehículo</h2>
+                      <label>Modelo</label>
+                      <select value={modeloIdx} onChange={(e) => setModeloIdx(Number(e.target.value))}>
+                        {modelos.map((m, i) => <option key={i} value={i}>{m.nombre}</option>)}
+                      </select>
+
+                      {dm.bonif > 0 && (
+                        <div style={{ marginTop: '15px' }}>
+                          <label className="switch">
+                            <input type="checkbox" checked={aplicarBonif} onChange={(e) => setAplicarBonif(e.target.checked)} />
+                            <span>Aplicar bonificación</span>
+                          </label>
+                          {aplicarBonif && (
+                            <div className="two">
+                              <div>
+                                <label>Monto Bonif.</label>
+                                <input type="text" value={bonifMonto === 0 ? "" : bonifMonto} onChange={(e) => setBonifMonto(Number(e.target.value.replace(/\D/g, "")) || 0)} />
+                              </div>
+                              <div>
+                                <label>Código</label>
+                                <div className="codigo-disfrazado">{cod(dm.bonif)}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <label>Patentamiento</label>
+                      <select value={patenta} onChange={(e) => setPatenta(e.target.value)}>
+                        <option value="con">A cargo del Concesionario</option>
+                        <option value="cli">A cargo del Cliente</option>
+                      </select>
+
+                      <button className="btn-next" onClick={() => setPestanaActiva(2)}>Siguiente: Pago →</button>
+                    </div>
+                  )}
+
+                  {pestanaActiva === 2 && (
+                    <div className="card">
+                      <h2>Forma de Pago</h2>
+                      <label>Anticipo en Pesos ($)</label>
+                      <input type="number" value={antPesos} onChange={(e) => setAntPesos(Number(e.target.value))} placeholder="Ej: 10000000" />
+                      
+                      <label>Anticipo en Dólares (USD)</label>
+                      <input type="number" value={antUsd} onChange={(e) => setAntUsd(Number(e.target.value))} placeholder="Ej: 20000" />
+
+                      <label className="switch" style={{marginTop: '20px'}}>
+                        <input type="checkbox" checked={checkUsado} onChange={(e) => setCheckUsado(e.target.checked)} />
+                        <span>Entrega usado en parte de pago</span>
+                      </label>
+                      {checkUsado && (
+                        <div className="two" style={{ marginTop: '10px' }}>
+                          <div><label>Tasación</label><input type="number" value={tasacion} onChange={(e) => setTasacion(Number(e.target.value))} /></div>
+                          <div><label>Moneda</label><select value={monedaUsado} onChange={(e) => setMonedaUsado(e.target.value)}><option value="ars">Pesos</option><option value="usd">Dólares</option></select></div>
+                        </div>
+                      )}
+
+                      <label style={{marginTop: '20px'}}>Datos del Cliente</label>
+                      <div className="two">
+                        <input type="text" value={nombreCliente} onChange={(e) => setNombreCliente(e.target.value)} placeholder="Nombre completo" />
+                        <input type="text" value={telefonoCliente} onChange={(e) => setTelefonoCliente(e.target.value)} placeholder="Teléfono" />
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                        <button className="btn-outline" style={{ flex: 1 }} onClick={() => setPestanaActiva(1)}>← Volver</button>
+                        <button className="btn-next" style={{ flex: 2 }} onClick={() => setPestanaActiva(3)}>Siguiente: Financiación →</button>
                       </div>
                     </div>
                   )}
-                  {mejores.map((opt, idx) => (
-                    <div
-                      key={idx}
-                      className={`opcion-card ${opt.l.nombre === lineaSel.nombre && opt.r[0] === plazoFinal ? 'selected' : ''}`}
-                      onClick={() => { setLineaIdx(opt.i); setPlazo(opt.r[0]); }}
-                    >
-                      <div className="opcion-info">
-                        <b>{opt.l.nombre}</b>
-                        <span>{opt.r[0]} cuotas</span>
-                      </div>
-                      <div className="opcion-cuota">{f(opt.cuota)}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
 
-          <div className="acciones">
-            <button className="btn-accion" onClick={() => navigator.clipboard.writeText("Cotización BYD")}>Copiar mensaje</button>
-            <button className="btn-accion" onClick={() => window.open("https://wa.me/", "_blank")}>Enviar WhatsApp</button>
-            <button className="btn-accion" onClick={() => window.print()}>Descargar PDF</button>
+                  {pestanaActiva === 3 && (
+                    <div className="card">
+                      <h2>Financiación</h2>
+                      <label className="switch">
+                        <input type="checkbox" checked={financiar} onChange={(e) => setFinanciar(e.target.checked)} />
+                        <span>Financiar saldo restante</span>
+                      </label>
+
+                      {financiar ? (
+                        <>
+                          <label>Línea Santander</label>
+                          <select value={lineaIdxSeguro} onChange={(e) => setLineaIdx(Number(e.target.value))}>
+                            {lineasValidas.map((l, i) => <option key={i} value={i}>{l.nombre}</option>)}
+                          </select>
+
+                          <label>Plazo</label>
+                          <div className="chips">
+                            {lineaSel.plazos.map(r => (
+                              <button key={r[0]} className={plazoFinal === r[0] ? "chip active" : "chip"} onClick={() => setPlazo(r[0])}>{r[0]} meses</button>
+                            ))}
+                          </div>
+
+                          <label>Qué prioriza el cliente</label>
+                          <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+                            <option value="cuota">Cuota más baja</option>
+                            <option value="inicial">Poner menos al inicio</option>
+                            <option value="costo">Menor costo total</option>
+                          </select>
+
+                          {resumenFin && (
+                            <div className="detalle-financiacion">
+                              <h3>Resumen de la opción</h3>
+                              <div className="row"><span>Cuota Inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
+                              <div className="row mut"><span>Última Cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
+                              <div className="row mut"><span>Gasto Otorg.:</span> <span>{f(resumenFin.gasto)}</span></div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="empty-state">
+                          <p>El cliente abonará la diferencia en efectivo o transferencia.</p>
+                        </div>
+                      )}
+
+                      <button className="btn-outline" style={{ marginTop: '20px', width: '100%' }} onClick={() => setPestanaActiva(2)}>← Volver al Pago</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* COLUMNA DERECHA: RESUMEN FIJO */}
+              <div className="col-summary">
+                <div className="summary-card">
+                  <h2>Resumen de Cotización</h2>
+                  
+                  <div className="summary-details">
+                    <div className="row"><span>Precio Auto:</span> <span>{nf(dm.precio)}</span></div>
+                    {bonifEfectiva > 0 && <div className="row"><span>Bonificación:</span> <span>-{nf(bonifEfectiva)}</span></div>}
+                    <div className="row"><span>FyF + Patent.:</span> <span>{nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}</span></div>
+                    <div className="row total"><span>Total:</span> <span>{nf(total)}</span></div>
+                    <div className="divider"></div>
+                    <div className="row"><span>Anticipo:</span> <span>{nf(anticipoEnMoneda)}</span></div>
+                    {checkUsado && <div className="row"><span>Usado:</span> <span>{nf(usadoEnMoneda)}</span></div>}
+                    {financiar && <div className="row"><span>A Financiar:</span> <span>{f(resumenFin?.aFinanciar || 0)}</span></div>}
+                  </div>
+
+                  <div className="summary-total-box">
+                    <span>Diferencia a abonar</span>
+                    <div className="cuota">{nf(dif)}</div>
+                    {esUsd && <div className="conv-hint">≈ {f(dif * tc)}</div>}
+                    {!esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif / tc : 0)}</div>}
+                  </div>
+
+                  <div className="summary-actions">
+                    <button className="btn-whatsapp"><FaWhatsapp /> Enviar por WhatsApp</button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="btn-outline" style={{ flex: 1 }}><FaCopy /> Copiar</button>
+                      <button className="btn-outline" style={{ flex: 1 }}><FaFilePdf /> PDF</button>
+                    </div>
+                    <button className="btn-save" style={{ marginTop: '8px' }}>Guardar Cotización</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <button className="btn-guardar" onClick={guardarEnCRM}>Guardar Cotización en CRM</button>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }
