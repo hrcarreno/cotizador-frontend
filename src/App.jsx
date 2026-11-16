@@ -269,7 +269,7 @@ export default function App() {
             <div className="card" style={{ marginTop: '30px', textAlign: 'center', padding: '40px 20px' }}>
               <h2 style={{ fontSize: '20px', marginBottom: '10px' }}>Gestión de Vehículos y Financiación</h2>
               <p style={{ color: 'var(--mut)', marginBottom: '30px', maxWidth: '600px', margin: '0 auto 30px' }}>
-                Descargá el archivo Excel, editá los modelos, tasas o plazos que necesites, y volvé a subirlo. 
+                Descargá el archivo CSV, editalo con Excel o Google Sheets, y volvé a subirlo. 
                 <b> El sistema reemplazará toda la información anterior con la del archivo.</b>
               </p>
               
@@ -280,13 +280,13 @@ export default function App() {
                   className="btn-outline" 
                   style={{ textDecoration: 'none', padding: '14px 30px', borderRadius: '8px', fontSize: '16px', fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '10px' }}
                 >
-                  <FaDownload /> Exportar Excel
+                  <FaDownload /> Exportar CSV
                 </a>
                 <label className="btn-next" style={{ cursor: 'pointer', margin: 0, padding: '14px 30px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
-                  <FaUpload /> Importar Excel
+                  <FaUpload /> Importar CSV
                   <input 
                     type="file" 
-                    accept=".xlsx, .xls" 
+                    accept=".csv" 
                     style={{ display: 'none' }} 
                     onChange={async (e) => {
                       const file = e.target.files[0];
