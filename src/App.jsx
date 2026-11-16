@@ -221,14 +221,6 @@ export default function App() {
     alert("Dólar guardado");
   };
 
-  const actualizarTasa = async (lineaId, indexPlazo, nuevaTasa) => {
-    const linea = lineas.find(l => l.id === lineaId);
-    const nuevosPlazos = JSON.parse(JSON.stringify(linea.plazos));
-    nuevosPlazos[indexPlazo][1] = Number(nuevaTasa);
-    await fetch(`${API_URL}/api/admin/lineas/${lineaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plazos: nuevosPlazos, activo: linea.activo }) });
-    alert("Tasa actualizada");
-  };
-
   const renderEquiv = (montoEnMonedaAuto) => {
     if (!montoEnMonedaAuto) return null;
     if (esUsd) return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {f(montoEnMonedaAuto * tc)}</span></div>;
@@ -259,18 +251,38 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h1>Configuración del Sistema</h1>
-                <p className="sub">Los cambios acá afectan a todos los vendedores.</p>
+                <p className="sub">Actualizá los precios y tasas de forma masiva usando Excel.</p>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+            </div>
+            
+            <div className="card" style={{ borderTop: '3px solid #3B82F6', marginTop: '20px' }}>
+              <h2>Cotización del Dólar</h2>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', maxWidth: '400px' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Valor Dólar Agencia</label>
+                  <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
+                </div>
+                <button onClick={guardarDolar}>Guardar Dólar</button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: '30px', textAlign: 'center', padding: '40px 20px' }}>
+              <h2 style={{ fontSize: '20px', marginBottom: '10px' }}>Gestión de Vehículos y Financiación</h2>
+              <p style={{ color: 'var(--mut)', marginBottom: '30px', maxWidth: '600px', margin: '0 auto 30px' }}>
+                Descargá el archivo Excel, editá los modelos, tasas o plazos que necesites, y volvé a subirlo. 
+                <b> El sistema reemplazará toda la información anterior con la del archivo.</b>
+              </p>
+              
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
                 <a 
                   href={`${API_URL}/api/admin/exportar`} 
                   download 
                   className="btn-outline" 
-                  style={{ textDecoration: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  style={{ textDecoration: 'none', padding: '14px 30px', borderRadius: '8px', fontSize: '16px', fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '10px' }}
                 >
                   <FaDownload /> Exportar Excel
                 </a>
-                <label className="btn-next" style={{ cursor: 'pointer', margin: 0, padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label className="btn-next" style={{ cursor: 'pointer', margin: 0, padding: '14px 30px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
                   <FaUpload /> Importar Excel
                   <input 
                     type="file" 
@@ -307,39 +319,11 @@ export default function App() {
                 </label>
               </div>
             </div>
-            
-            <div className="card" style={{ borderTop: '3px solid #3B82F6', marginTop: '20px' }}>
-              <h2>Cotización del Dólar</h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', maxWidth: '400px' }}>
-                <div style={{ flex: 1 }}>
-                  <label>Valor Dólar Agencia</label>
-                  <input type="number" value={tc} onChange={(e) => setTc(Number(e.target.value))} />
-                </div>
-                <button onClick={guardarDolar}>Guardar Dólar</button>
-              </div>
-            </div>
-
-            <h2 style={{ marginTop: '30px' }}>Líneas Santander</h2>
-            <div className="admin-grid">
-              {lineas.map(l => (
-                <div key={l.id} className="card">
-                  <h3>{l.nombre}</h3>
-                  <div className="admin-plazos">
-                    {l.plazos.map((p, idx) => (
-                      <div key={idx} className="admin-plazo-item">
-                        <span>{p[0]}m</span>
-                        <input type="number" defaultValue={p[1]} step="0.1" onBlur={(e) => actualizarTasa(l.id, idx, e.target.value)} />
-                        <span>%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="cotizador-layout">
             
+            {/* HEADER SUPERIOR FIJO */}
             <header className="top-header">
               <div>
                 <h1>Cotizador BYD</h1>
@@ -348,6 +332,7 @@ export default function App() {
               <button className="btn-reset" onClick={resetFormulario}>Nueva Consulta</button>
             </header>
 
+            {/* ASISTENTE IA (Más compacto) */}
             <div className="ia-card">
               <div className="ia-header"><FaRobot size={18} color="#3B82F6"/> <b>Asistente IA</b> <span className="ia-hint">(Escribí "Quiere un Atto 2 con 10 palos")</span></div>
               <div className="ia-chat">
@@ -362,6 +347,7 @@ export default function App() {
             </div>
 
             <div className="grid-columns">
+              {/* COLUMNA IZQUIERDA: FORMULARIO CON PESTAÑAS */}
               <div className="col-form">
                 <div className="tabs-header">
                   <button className={pestanaActiva === 1 ? "active" : ""} onClick={() => setPestanaActiva(1)}><FaCar /> 1. Vehículo</button>
@@ -503,6 +489,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* COLUMNA DERECHA: RESUMEN FIJO */}
               <div className="col-summary">
                 <div className="summary-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
