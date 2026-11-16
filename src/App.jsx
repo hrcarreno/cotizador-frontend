@@ -64,7 +64,7 @@ export default function App() {
   const [iaHistorial, setIaHistorial] = useState(ESTADO_INICIAL.iaHistorial);
 
   const chatRef = useRef(null);
-  const API_URL = "https://cotizador-byd.onrender.com"; // O la URL de tu Render
+  const API_URL = "https://cotizador-byd.onrender.com";
 
   useEffect(() => {
     if (!logueado) return;
@@ -221,8 +221,6 @@ export default function App() {
     alert("Dólar guardado");
   };
 
-  // --- FUNCIONES DE LOS BOTONES ---
-
   const generarTextoResumen = () => {
     let texto = `*Cotización BYD - ${dm.nombre}*\n`;
     if (nombreCliente) texto += `Cliente: ${nombreCliente}\n`;
@@ -264,7 +262,6 @@ export default function App() {
     }
 
     try {
-      // Aquí hacemos el POST a un endpoint que vamos a crear en el backend
       const payload = {
         cliente_nombre: nombreCliente,
         cliente_telefono: telefonoCliente,
@@ -521,14 +518,7 @@ export default function App() {
                             ))}
                           </div>
 
-                          {errorFinanciacion ? (
-                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #EF4444', color: '#EF4444', padding: '16px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                              <FaExclamationTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
-                              <div>
-                                <b>Atención:</b> {errorFinanciacion}
-                              </div>
-                            </div>
-                          ) : (
+                          {dif > 0 && (
                             <>
                               <label>Qué prioriza el cliente</label>
                               <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
@@ -537,14 +527,21 @@ export default function App() {
                                 <option value="costo">Menor costo total</option>
                               </select>
 
-                              {resumenFin && (
+                              {errorFinanciacion ? (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #EF4444', color: '#EF4444', padding: '16px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                  <FaExclamationTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                  <div>
+                                    <b>Atención:</b> {errorFinanciacion}
+                                  </div>
+                                </div>
+                              ) : resumenFin ? (
                                 <div className="detalle-financiacion">
                                   <h3>Resumen de la opción</h3>
                                   <div className="row"><span>Cuota Inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
                                   <div className="row mut"><span>Última Cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
                                   <div className="row mut"><span>Gasto Otorg.:</span> <span>{f(resumenFin.gasto)}</span></div>
                                 </div>
-                              )}
+                              ) : null}
                             </>
                           )}
                         </>
