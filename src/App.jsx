@@ -64,7 +64,7 @@ export default function App() {
   const [iaHistorial, setIaHistorial] = useState(ESTADO_INICIAL.iaHistorial);
 
   const chatRef = useRef(null);
-  const API_URL = "https://cotizador-byd.onrender.com";
+  const API_URL = "https://cotizador-byd.onrender.com"; // O la URL de tu Render
 
   useEffect(() => {
     if (!logueado) return;
@@ -221,6 +221,80 @@ export default function App() {
     alert("Dólar guardado");
   };
 
+  // --- FUNCIONES DE LOS BOTONES ---
+
+  const generarTextoResumen = () => {
+    let texto = `*Cotización BYD - ${dm.nombre}*\n`;
+    if (nombreCliente) texto += `Cliente: ${nombreCliente}\n`;
+    texto += `\n`;
+    texto += `Precio Auto: ${nf(dm.precio)}\n`;
+    if (bonifEfectiva > 0) texto += `Bonificación: -${nf(bonifEfectiva)}\n`;
+    texto += `FyF + Patent.: ${nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}\n`;
+    texto += `*Total: ${nf(total)}*\n\n`;
+    texto += `Anticipo: ${nf(anticipoEnMoneda)}\n`;
+    if (checkUsado) texto += `Usado: ${nf(usadoEnMoneda)}\n`;
+    if (financiar && resumenFin) {
+      texto += `Financiación: ${resumenFin.linea} (${resumenFin.plazo} meses)\n`;
+      texto += `Cuota inicial: ${f(resumenFin.cuota)}\n`;
+    }
+    texto += `\n*Diferencia a abonar: ${nf(dif)}*`;
+    return texto;
+  };
+
+  const copiarMensaje = () => {
+    navigator.clipboard.writeText(generarTextoResumen());
+    alert("¡Texto copiado al portapapeles!");
+  };
+
+  const enviarWhatsApp = () => {
+    const texto = encodeURIComponent(generarTextoResumen());
+    const tel = telefonoCliente.replace(/\D/g, "");
+    const url = tel ? `https://wa.me/${tel}?text=${texto}` : `https://wa.me/?text=${texto}`;
+    window.open(url, "_blank");
+  };
+
+  const descargarPDF = () => {
+    window.print();
+  };
+
+  const guardarEnCRM = async () => {
+    if (!nombreCliente.trim() || !telefonoCliente.trim()) {
+      alert("Por favor, ingresá el nombre y teléfono del cliente antes de guardar.");
+      return;
+    }
+
+    try {
+      // Aquí hacemos el POST a un endpoint que vamos a crear en el backend
+      const payload = {
+        cliente_nombre: nombreCliente,
+        cliente_telefono: telefonoCliente,
+        modelo: dm.nombre,
+        moneda: dm.moneda,
+        total: total,
+        anticipo: anticipoEnMoneda,
+        diferencia: dif,
+        financiado: financiar,
+        linea_financiacion: financiar ? resumenFin?.linea : null,
+        plazo: financiar ? resumenFin?.plazo : null,
+        cuota_inicial: financiar ? resumenFin?.cuota : null
+      };
+
+      const res = await fetch(`${API_URL}/api/cotizaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        alert("✅ Cotización guardada exitosamente en el CRM");
+      } else {
+        alert("❌ Hubo un error al guardar en el CRM");
+      }
+    } catch (error) {
+      alert("❌ Error de conexión al guardar");
+    }
+  };
+
   const renderEquiv = (montoEnMonedaAuto) => {
     if (!montoEnMonedaAuto) return null;
     if (esUsd) return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {f(montoEnMonedaAuto * tc)}</span></div>;
@@ -230,7 +304,7 @@ export default function App() {
   return (
     <div className="app-layout">
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className="sidebar no-print">
         <div className="sidebar-logo"><FaCar size={24} color="#3B82F6" /> <span>BYD</span></div>
         <nav className="sidebar-nav">
           <button className={vista === "cotizador" ? "active" : ""} onClick={() => setVista("cotizador")}><FaCar /> Cotizador</button>
@@ -323,8 +397,7 @@ export default function App() {
         ) : (
           <div className="cotizador-layout">
             
-            {/* HEADER SUPERIOR FIJO */}
-            <header className="top-header">
+            <header className="top-header no-print">
               <div>
                 <h1>Cotizador BYD</h1>
                 <p className="sub">Cliente: <b>{nombreCliente || "Sin nombre"}</b> | Modelo: <b>{dm.nombre}</b></p>
@@ -332,8 +405,7 @@ export default function App() {
               <button className="btn-reset" onClick={resetFormulario}>Nueva Consulta</button>
             </header>
 
-            {/* ASISTENTE IA (Más compacto) */}
-            <div className="ia-card">
+            <div className="ia-card no-print">
               <div className="ia-header"><FaRobot size={18} color="#3B82F6"/> <b>Asistente IA</b> <span className="ia-hint">(Escribí "Quiere un Atto 2 con 10 palos")</span></div>
               <div className="ia-chat">
                 {iaHistorial.map((m, i) => (
@@ -347,9 +419,8 @@ export default function App() {
             </div>
 
             <div className="grid-columns">
-              {/* COLUMNA IZQUIERDA: FORMULARIO CON PESTAÑAS */}
               <div className="col-form">
-                <div className="tabs-header">
+                <div className="tabs-header no-print">
                   <button className={pestanaActiva === 1 ? "active" : ""} onClick={() => setPestanaActiva(1)}><FaCar /> 1. Vehículo</button>
                   <button className={pestanaActiva === 2 ? "active" : ""} onClick={() => setPestanaActiva(2)}><FaMoneyBillWave /> 2. Pago</button>
                   <button className={pestanaActiva === 3 ? "active" : ""} onClick={() => setPestanaActiva(3)}><FaCreditCard /> 3. Financiación</button>
@@ -489,12 +560,11 @@ export default function App() {
                 </div>
               </div>
 
-              {/* COLUMNA DERECHA: RESUMEN FIJO */}
               <div className="col-summary">
                 <div className="summary-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
                     <h2 style={{ margin: 0, border: 'none', padding: 0 }}>Resumen</h2>
-                    <button 
+                    <button className="no-print"
                       onClick={() => setVerEnPesos(!verEnPesos)}
                       style={{ background: 'transparent', border: 'none', color: 'var(--acc)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', padding: 0 }}
                     >
@@ -576,13 +646,13 @@ export default function App() {
                     {verEnPesos && esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif : 0)}</div>}
                   </div>
 
-                  <div className="summary-actions">
-                    <button className="btn-whatsapp"><FaWhatsapp /> Enviar por WhatsApp</button>
+                  <div className="summary-actions no-print">
+                    <button className="btn-whatsapp" onClick={enviarWhatsApp}><FaWhatsapp /> Enviar por WhatsApp</button>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-outline" style={{ flex: 1 }}><FaCopy /> Copiar</button>
-                      <button className="btn-outline" style={{ flex: 1 }}><FaFilePdf /> PDF</button>
+                      <button className="btn-outline" style={{ flex: 1 }} onClick={copiarMensaje}><FaCopy /> Copiar</button>
+                      <button className="btn-outline" style={{ flex: 1 }} onClick={descargarPDF}><FaFilePdf /> PDF</button>
                     </div>
-                    <button className="btn-save" style={{ marginTop: '8px' }}>Guardar Cotización</button>
+                    <button className="btn-save" style={{ marginTop: '8px' }} onClick={guardarEnCRM}>Guardar Cotización</button>
                   </div>
                 </div>
               </div>
