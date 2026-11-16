@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaExclamationTriangle, FaUpload, FaDownload } from 'react-icons/fa';
 import './App.css';
 
 const f = (n) => "$ " + Math.round(n).toLocaleString("es-AR");
@@ -134,9 +134,7 @@ export default function App() {
         const quebranto = r[2] * 1.21;
         const gast = difArs * (quebranto / 100);
         const fr = frances(difArs, tna, r[0]);
-        const tope = r[3] || Infinity;
-        
-        if (difArs <= tope) {
+        if (difArs <= (r[3] || Infinity)) {
           mejores.push({ l, i, r, cuota: fr.first, gast, pon: difArs + gast, costo: fr.sum - difArs + gast });
         }
       });
@@ -147,13 +145,12 @@ export default function App() {
   }
 
   let resumenFin = null;
-  let errorFinanciacion = null; // <-- NUEVO ESTADO PARA EL ERROR
+  let errorFinanciacion = null;
   
   if (financiar && dif > 0 && plazoData) {
     const difArs = esUsd ? dif * tc : dif;
     const tope = plazoData[3] || Infinity;
     
-    // VALIDACIÓN: ¿Supera el tope de Santander?
     if (difArs > tope) {
       errorFinanciacion = `El monto a financiar (${f(difArs)}) supera el tope de la línea "${lineaSel.nombre}" para ${plazoFinal} meses. El tope máximo es de ${f(tope)}.`;
     } else {
@@ -232,14 +229,10 @@ export default function App() {
     alert("Tasa actualizada");
   };
 
-  // Helper para armar las equivalencias en el resumen
   const renderEquiv = (montoEnMonedaAuto) => {
     if (!montoEnMonedaAuto) return null;
-    if (esUsd) {
-      return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {f(montoEnMonedaAuto * tc)}</span></div>;
-    } else {
-      return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {u(tc > 0 ? montoEnMonedaAuto / tc : 0)}</span></div>;
-    }
+    if (esUsd) return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {f(montoEnMonedaAuto * tc)}</span></div>;
+    return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {u(tc > 0 ? montoEnMonedaAuto / tc : 0)}</span></div>;
   };
 
   return (
@@ -260,14 +253,62 @@ export default function App() {
         </div>
       </aside>
 
-      {/* CONTENIDO PRINCIPAL */}
       <main className="main-content">
         {vista === "admin" ? (
           <div className="admin-view">
-            <h1>Configuración del Sistema</h1>
-            <p className="sub">Los cambios acá afectan a todos los vendedores.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h1>Configuración del Sistema</h1>
+                <p className="sub">Los cambios acá afectan a todos los vendedores.</p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a 
+                  href={`${API_URL}/api/admin/exportar`} 
+                  download 
+                  className="btn-outline" 
+                  style={{ textDecoration: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <FaDownload /> Exportar Excel
+                </a>
+                <label className="btn-next" style={{ cursor: 'pointer', margin: 0, padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaUpload /> Importar Excel
+                  <input 
+                    type="file" 
+                    accept=".xlsx, .xls" 
+                    style={{ display: 'none' }} 
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      
+                      if (window.confirm("⚠️ ¿Estás seguro? Esto BORRARÁ todos los modelos y líneas actuales y cargará los del archivo.")) {
+                        try {
+                          setCargando(true);
+                          const res = await fetch(`${API_URL}/api/admin/importar`, {
+                            method: "POST",
+                            body: formData
+                          });
+                          const data = await res.json();
+                          if (data.error) {
+                            alert("Error: " + data.error);
+                            setCargando(false);
+                          } else {
+                            alert("✅ Datos importados con éxito. La página se va a recargar.");
+                            window.location.reload();
+                          }
+                        } catch (err) {
+                          alert("Fallo al importar el archivo");
+                          setCargando(false);
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
             
-            <div className="card" style={{ borderTop: '3px solid #3B82F6' }}>
+            <div className="card" style={{ borderTop: '3px solid #3B82F6', marginTop: '20px' }}>
               <h2>Cotización del Dólar</h2>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', maxWidth: '400px' }}>
                 <div style={{ flex: 1 }}>
@@ -299,7 +340,6 @@ export default function App() {
         ) : (
           <div className="cotizador-layout">
             
-            {/* HEADER SUPERIOR FIJO */}
             <header className="top-header">
               <div>
                 <h1>Cotizador BYD</h1>
@@ -308,7 +348,6 @@ export default function App() {
               <button className="btn-reset" onClick={resetFormulario}>Nueva Consulta</button>
             </header>
 
-            {/* ASISTENTE IA (Más compacto) */}
             <div className="ia-card">
               <div className="ia-header"><FaRobot size={18} color="#3B82F6"/> <b>Asistente IA</b> <span className="ia-hint">(Escribí "Quiere un Atto 2 con 10 palos")</span></div>
               <div className="ia-chat">
@@ -323,7 +362,6 @@ export default function App() {
             </div>
 
             <div className="grid-columns">
-              {/* COLUMNA IZQUIERDA: FORMULARIO CON PESTAÑAS */}
               <div className="col-form">
                 <div className="tabs-header">
                   <button className={pestanaActiva === 1 ? "active" : ""} onClick={() => setPestanaActiva(1)}><FaCar /> 1. Vehículo</button>
@@ -465,7 +503,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* COLUMNA DERECHA: RESUMEN FIJO */}
               <div className="col-summary">
                 <div className="summary-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
@@ -483,7 +520,6 @@ export default function App() {
                       <span>Precio Auto:</span> 
                       <span>{verEnPesos ? f(total * tc) : nf(dm.precio)}</span>
                     </div>
-                    {/* EQUIVALENCIA PRECIO */}
                     {verEnPesos && esUsd && renderEquiv(dm.precio)}
                     {!verEnPesos && !esUsd && renderEquiv(dm.precio)}
 
@@ -502,7 +538,6 @@ export default function App() {
                       <span>FyF + Patent.:</span> 
                       <span>{verEnPesos ? f((dm.fyf + (patenta === "con" ? dm.pat : 0)) * tc) : nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}</span>
                     </div>
-                    {/* EQUIVALENCIA FyF */}
                     {verEnPesos && esUsd && renderEquiv(dm.fyf + (patenta === "con" ? dm.pat : 0))}
                     {!verEnPesos && !esUsd && renderEquiv(dm.fyf + (patenta === "con" ? dm.pat : 0))}
 
@@ -510,7 +545,6 @@ export default function App() {
                       <span>Total:</span> 
                       <span>{verEnPesos ? f(total * tc) : nf(total)}</span>
                     </div>
-                    {/* EQUIVALENCIA TOTAL */}
                     {verEnPesos && esUsd && renderEquiv(total)}
                     {!verEnPesos && !esUsd && renderEquiv(total)}
 
@@ -520,7 +554,6 @@ export default function App() {
                       <span>Anticipo:</span> 
                       <span>{verEnPesos ? f(anticipoEnMoneda * tc) : nf(anticipoEnMoneda)}</span>
                     </div>
-                    {/* EQUIVALENCIA ANTICIPO */}
                     {verEnPesos && esUsd && renderEquiv(anticipoEnMoneda)}
                     {!verEnPesos && !esUsd && renderEquiv(anticipoEnMoneda)}
 
