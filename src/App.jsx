@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard } from 'react-icons/fa';
+import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard, FaExchangeAlt } from 'react-icons/fa';
 import './App.css';
 
 const f = (n) => "$ " + Math.round(n).toLocaleString("es-AR");
@@ -37,6 +37,7 @@ export default function App() {
   const [logueado, setLogueado] = useState(false);
   const [vista, setVista] = useState("cotizador"); 
   const [pestanaActiva, setPestanaActiva] = useState(1); 
+  const [verEnPesos, setVerEnPesos] = useState(false); // <-- NUEVO ESTADO PARA EL SWITCH
   
   const [modelos, setModelos] = useState([]);
   const [lineas, setLineas] = useState([]);
@@ -112,9 +113,13 @@ export default function App() {
   const nf = esUsd ? u : f;
   const bonifEfectiva = aplicarBonif ? (bonifMonto > 0 ? Math.min(bonifMonto, dm.precio) : dm.bonif) : 0;
   const total = (dm.precio - bonifEfectiva) + dm.fyf + (patenta === "con" ? dm.pat : 0);
+  
   const anticipoEnMoneda = esUsd ? (antUsd + (tc > 0 ? antPesos / tc : 0)) : (antPesos + (antUsd * tc));
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
+  
+  // --- LÓGICA PARA MOSTRAR EQUIVALENCIAS ---
+  const mostrarEquivAnticipo = (esUsd && antPesos > 0) || (!esUsd && antUsd > 0);
   
   const lineasValidas = lineas.filter(l => !l.aplica_a || l.aplica_a.length === 0 || l.aplica_a.some(a => dm.nombre.includes(a)));
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
@@ -157,6 +162,7 @@ export default function App() {
     setFinanciar(false); setLineaIdx(0); setPlazo(12); setPrioridad("cuota");
     setNombreCliente(""); setTelefonoCliente(""); setIaInput(""); setIaOutput(""); setIaHistorial([]);
     setPestanaActiva(1);
+    setVerEnPesos(false);
   };
 
   const handleIA = async () => {
@@ -433,24 +439,78 @@ export default function App() {
               {/* COLUMNA DERECHA: RESUMEN FIJO */}
               <div className="col-summary">
                 <div className="summary-card">
-                  <h2>Resumen de Cotización</h2>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <h2 style={{ margin: 0, border: 'none', padding: 0 }}>Resumen</h2>
+                    <button 
+                      onClick={() => setVerEnPesos(!verEnPesos)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--acc)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', padding: 0 }}
+                    >
+                      <FaExchangeAlt /> Ver en {verEnPesos ? 'USD' : 'ARS'}
+                    </button>
+                  </div>
                   
                   <div className="summary-details">
-                    <div className="row"><span>Precio Auto:</span> <span>{nf(dm.precio)}</span></div>
-                    {bonifEfectiva > 0 && <div className="row"><span>Bonificación:</span> <span>-{nf(bonifEfectiva)}</span></div>}
-                    <div className="row"><span>FyF + Patent.:</span> <span>{nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}</span></div>
-                    <div className="row total"><span>Total:</span> <span>{nf(total)}</span></div>
+                    <div className="row">
+                      <span>Precio Auto:</span> 
+                      <span>{verEnPesos ? f(total * tc) : nf(dm.precio)}</span>
+                    </div>
+                    {bonifEfectiva > 0 && (
+                      <div className="row">
+                        <span>Bonificación:</span> 
+                        <span>-{verEnPesos ? f(bonifEfectiva * tc) : nf(bonifEfectiva)}</span>
+                      </div>
+                    )}
+                    <div className="row">
+                      <span>FyF + Patent.:</span> 
+                      <span>{verEnPesos ? f((dm.fyf + (patenta === "con" ? dm.pat : 0)) * tc) : nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}</span>
+                    </div>
+                    <div className="row total">
+                      <span>Total:</span> 
+                      <span>{verEnPesos ? f(total * tc) : nf(total)}</span>
+                    </div>
                     <div className="divider"></div>
-                    <div className="row"><span>Anticipo:</span> <span>{nf(anticipoEnMoneda)}</span></div>
-                    {checkUsado && <div className="row"><span>Usado:</span> <span>{nf(usadoEnMoneda)}</span></div>}
-                    {financiar && <div className="row"><span>A Financiar:</span> <span>{f(resumenFin?.aFinanciar || 0)}</span></div>}
+                    
+                    <div className="row">
+                      <span>Anticipo:</span> 
+                      <span>{verEnPesos ? f(anticipoEnMoneda * tc) : nf(anticipoEnMoneda)}</span>
+                    </div>
+                    
+                    {/* MOSTRAR EQUIVALENCIA SOLO SI ES NECESARIO */}
+                    {mostrarEquivAnticipo && !verEnPesos && esUsd && (
+                      <div className="row mut" style={{ fontSize: '11px', paddingTop: 0 }}>
+                        <span></span>
+                        <span>≈ {f(antPesos)} + {u(antUsd)}</span>
+                      </div>
+                    )}
+                    {mostrarEquivAnticipo && verEnPesos && !esUsd && (
+                      <div className="row mut" style={{ fontSize: '11px', paddingTop: 0 }}>
+                        <span></span>
+                        <span>≈ {u(antUsd)} + {f(antPesos)}</span>
+                      </div>
+                    )}
+
+                    {checkUsado && (
+                      <div className="row">
+                        <span>Usado:</span> 
+                        <span>{verEnPesos ? f(usadoEnMoneda * tc) : nf(usadoEnMoneda)}</span>
+                      </div>
+                    )}
+                    {financiar && (
+                      <div className="row">
+                        <span>A Financiar:</span> 
+                        <span>{verEnPesos ? f(resumenFin?.aFinanciar || 0) : nf((resumenFin?.aFinanciar || 0) / tc)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="summary-total-box">
                     <span>Diferencia a abonar</span>
-                    <div className="cuota">{nf(dif)}</div>
-                    {esUsd && <div className="conv-hint">≈ {f(dif * tc)}</div>}
-                    {!esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif / tc : 0)}</div>}
+                    <div className="cuota">
+                      {verEnPesos ? f(dif * tc) : nf(dif)}
+                    </div>
+                    {!verEnPesos && esUsd && <div className="conv-hint">≈ {f(dif * tc)}</div>}
+                    {!verEnPesos && !esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif / tc : 0)}</div>}
+                    {verEnPesos && esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif : 0)}</div>}
                   </div>
 
                   <div className="summary-actions">
@@ -470,5 +530,3 @@ export default function App() {
     </div>
   );
 }
-
-
