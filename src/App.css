@@ -146,3 +146,30 @@ button:hover { opacity: 0.9; }
 .admin-plazo-item span { font-size: 13px; color: var(--mut); font-weight: 500; }
 
 .loading-screen { display: flex; align-items: center; justify-content: center; height: 100vh; font-size: 18px; color: var(--mut); }
+
+/* --- ESTILOS PARA IMPRESIÓN / PDF --- */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .app-layout {
+    display: block;
+  }
+  .main-content {
+    padding: 0;
+  }
+  .summary-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    margin: 0 auto;
+    max-width: 600px;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
