@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard, FaExchangeAlt } from 'react-icons/fa';
+import { FaCar, FaUser, FaCog, FaSignOutAlt, FaWhatsapp, FaFilePdf, FaCopy, FaRobot, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaExclamationTriangle } from 'react-icons/fa';
 import './App.css';
 
 const f = (n) => "$ " + Math.round(n).toLocaleString("es-AR");
@@ -37,7 +37,7 @@ export default function App() {
   const [logueado, setLogueado] = useState(false);
   const [vista, setVista] = useState("cotizador"); 
   const [pestanaActiva, setPestanaActiva] = useState(1); 
-  const [verEnPesos, setVerEnPesos] = useState(false); // <-- NUEVO ESTADO PARA EL SWITCH
+  const [verEnPesos, setVerEnPesos] = useState(false);
   
   const [modelos, setModelos] = useState([]);
   const [lineas, setLineas] = useState([]);
@@ -118,9 +118,6 @@ export default function App() {
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
   
-  // --- LÓGICA PARA MOSTRAR EQUIVALENCIAS ---
-  const mostrarEquivAnticipo = (esUsd && antPesos > 0) || (!esUsd && antUsd > 0);
-  
   const lineasValidas = lineas.filter(l => !l.aplica_a || l.aplica_a.length === 0 || l.aplica_a.some(a => dm.nombre.includes(a)));
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
   const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0];
@@ -137,7 +134,9 @@ export default function App() {
         const quebranto = r[2] * 1.21;
         const gast = difArs * (quebranto / 100);
         const fr = frances(difArs, tna, r[0]);
-        if (difArs <= (r[3] || Infinity)) {
+        const tope = r[3] || Infinity;
+        
+        if (difArs <= tope) {
           mejores.push({ l, i, r, cuota: fr.first, gast, pon: difArs + gast, costo: fr.sum - difArs + gast });
         }
       });
@@ -148,12 +147,21 @@ export default function App() {
   }
 
   let resumenFin = null;
+  let errorFinanciacion = null; // <-- NUEVO ESTADO PARA EL ERROR
+  
   if (financiar && dif > 0 && plazoData) {
     const difArs = esUsd ? dif * tc : dif;
-    const quebranto = plazoData[2] * 1.21;
-    const gasto = difArs * (quebranto / 100);
-    const fr = frances(difArs, plazoData[1], plazoFinal);
-    resumenFin = { linea: lineaSel.nombre, plazo: plazoFinal, aFinanciar: difArs, gasto, cuota: fr.first, ultimaCuota: fr.last, totalCuotas: fr.sum, tope: plazoData[3] };
+    const tope = plazoData[3] || Infinity;
+    
+    // VALIDACIÓN: ¿Supera el tope de Santander?
+    if (difArs > tope) {
+      errorFinanciacion = `El monto a financiar (${f(difArs)}) supera el tope de la línea "${lineaSel.nombre}" para ${plazoFinal} meses. El tope máximo es de ${f(tope)}.`;
+    } else {
+      const quebranto = plazoData[2] * 1.21;
+      const gasto = difArs * (quebranto / 100);
+      const fr = frances(difArs, plazoData[1], plazoFinal);
+      resumenFin = { linea: lineaSel.nombre, plazo: plazoFinal, aFinanciar: difArs, gasto, cuota: fr.first, ultimaCuota: fr.last, totalCuotas: fr.sum, tope: plazoData[3] };
+    }
   }
 
   const resetFormulario = () => {
@@ -222,6 +230,16 @@ export default function App() {
     nuevosPlazos[indexPlazo][1] = Number(nuevaTasa);
     await fetch(`${API_URL}/api/admin/lineas/${lineaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plazos: nuevosPlazos, activo: linea.activo }) });
     alert("Tasa actualizada");
+  };
+
+  // Helper para armar las equivalencias en el resumen
+  const renderEquiv = (montoEnMonedaAuto) => {
+    if (!montoEnMonedaAuto) return null;
+    if (esUsd) {
+      return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {f(montoEnMonedaAuto * tc)}</span></div>;
+    } else {
+      return <div className="row mut" style={{ fontSize: '11px', paddingTop: 0, color: 'var(--mut)' }}><span></span><span>≈ {u(tc > 0 ? montoEnMonedaAuto / tc : 0)}</span></div>;
+    }
   };
 
   return (
@@ -408,20 +426,31 @@ export default function App() {
                             ))}
                           </div>
 
-                          <label>Qué prioriza el cliente</label>
-                          <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-                            <option value="cuota">Cuota más baja</option>
-                            <option value="inicial">Poner menos al inicio</option>
-                            <option value="costo">Menor costo total</option>
-                          </select>
-
-                          {resumenFin && (
-                            <div className="detalle-financiacion">
-                              <h3>Resumen de la opción</h3>
-                              <div className="row"><span>Cuota Inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
-                              <div className="row mut"><span>Última Cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
-                              <div className="row mut"><span>Gasto Otorg.:</span> <span>{f(resumenFin.gasto)}</span></div>
+                          {errorFinanciacion ? (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #EF4444', color: '#EF4444', padding: '16px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                              <FaExclamationTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                              <div>
+                                <b>Atención:</b> {errorFinanciacion}
+                              </div>
                             </div>
+                          ) : (
+                            <>
+                              <label>Qué prioriza el cliente</label>
+                              <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+                                <option value="cuota">Cuota más baja</option>
+                                <option value="inicial">Poner menos al inicio</option>
+                                <option value="costo">Menor costo total</option>
+                              </select>
+
+                              {resumenFin && (
+                                <div className="detalle-financiacion">
+                                  <h3>Resumen de la opción</h3>
+                                  <div className="row"><span>Cuota Inicial:</span> <span className="cuota-detalle">{f(resumenFin.cuota)}</span></div>
+                                  <div className="row mut"><span>Última Cuota:</span> <span>{f(resumenFin.ultimaCuota)}</span></div>
+                                  <div className="row mut"><span>Gasto Otorg.:</span> <span>{f(resumenFin.gasto)}</span></div>
+                                </div>
+                              )}
+                            </>
                           )}
                         </>
                       ) : (
@@ -454,52 +483,66 @@ export default function App() {
                       <span>Precio Auto:</span> 
                       <span>{verEnPesos ? f(total * tc) : nf(dm.precio)}</span>
                     </div>
+                    {/* EQUIVALENCIA PRECIO */}
+                    {verEnPesos && esUsd && renderEquiv(dm.precio)}
+                    {!verEnPesos && !esUsd && renderEquiv(dm.precio)}
+
                     {bonifEfectiva > 0 && (
-                      <div className="row">
-                        <span>Bonificación:</span> 
-                        <span>-{verEnPesos ? f(bonifEfectiva * tc) : nf(bonifEfectiva)}</span>
-                      </div>
+                      <>
+                        <div className="row">
+                          <span>Bonificación:</span> 
+                          <span>-{verEnPesos ? f(bonifEfectiva * tc) : nf(bonifEfectiva)}</span>
+                        </div>
+                        {verEnPesos && esUsd && renderEquiv(-bonifEfectiva)}
+                        {!verEnPesos && !esUsd && renderEquiv(-bonifEfectiva)}
+                      </>
                     )}
+                    
                     <div className="row">
                       <span>FyF + Patent.:</span> 
                       <span>{verEnPesos ? f((dm.fyf + (patenta === "con" ? dm.pat : 0)) * tc) : nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}</span>
                     </div>
+                    {/* EQUIVALENCIA FyF */}
+                    {verEnPesos && esUsd && renderEquiv(dm.fyf + (patenta === "con" ? dm.pat : 0))}
+                    {!verEnPesos && !esUsd && renderEquiv(dm.fyf + (patenta === "con" ? dm.pat : 0))}
+
                     <div className="row total">
                       <span>Total:</span> 
                       <span>{verEnPesos ? f(total * tc) : nf(total)}</span>
                     </div>
+                    {/* EQUIVALENCIA TOTAL */}
+                    {verEnPesos && esUsd && renderEquiv(total)}
+                    {!verEnPesos && !esUsd && renderEquiv(total)}
+
                     <div className="divider"></div>
                     
                     <div className="row">
                       <span>Anticipo:</span> 
                       <span>{verEnPesos ? f(anticipoEnMoneda * tc) : nf(anticipoEnMoneda)}</span>
                     </div>
-                    
-                    {/* MOSTRAR EQUIVALENCIA SOLO SI ES NECESARIO */}
-                    {mostrarEquivAnticipo && !verEnPesos && esUsd && (
-                      <div className="row mut" style={{ fontSize: '11px', paddingTop: 0 }}>
-                        <span></span>
-                        <span>≈ {f(antPesos)} + {u(antUsd)}</span>
-                      </div>
-                    )}
-                    {mostrarEquivAnticipo && verEnPesos && !esUsd && (
-                      <div className="row mut" style={{ fontSize: '11px', paddingTop: 0 }}>
-                        <span></span>
-                        <span>≈ {u(antUsd)} + {f(antPesos)}</span>
-                      </div>
-                    )}
+                    {/* EQUIVALENCIA ANTICIPO */}
+                    {verEnPesos && esUsd && renderEquiv(anticipoEnMoneda)}
+                    {!verEnPesos && !esUsd && renderEquiv(anticipoEnMoneda)}
 
                     {checkUsado && (
-                      <div className="row">
-                        <span>Usado:</span> 
-                        <span>{verEnPesos ? f(usadoEnMoneda * tc) : nf(usadoEnMoneda)}</span>
-                      </div>
+                      <>
+                        <div className="row">
+                          <span>Usado:</span> 
+                          <span>{verEnPesos ? f(usadoEnMoneda * tc) : nf(usadoEnMoneda)}</span>
+                        </div>
+                        {verEnPesos && esUsd && renderEquiv(usadoEnMoneda)}
+                        {!verEnPesos && !esUsd && renderEquiv(usadoEnMoneda)}
+                      </>
                     )}
                     {financiar && (
-                      <div className="row">
-                        <span>A Financiar:</span> 
-                        <span>{verEnPesos ? f(resumenFin?.aFinanciar || 0) : nf((resumenFin?.aFinanciar || 0) / tc)}</span>
-                      </div>
+                      <>
+                        <div className="row">
+                          <span>A Financiar:</span> 
+                          <span>{verEnPesos ? f(resumenFin?.aFinanciar || 0) : nf((resumenFin?.aFinanciar || 0) / tc)}</span>
+                        </div>
+                        {verEnPesos && esUsd && renderEquiv((resumenFin?.aFinanciar || 0) / tc)}
+                        {!verEnPesos && !esUsd && renderEquiv(resumenFin?.aFinanciar || 0)}
+                      </>
                     )}
                   </div>
 
