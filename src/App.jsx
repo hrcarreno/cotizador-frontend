@@ -118,7 +118,21 @@ export default function App() {
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
   
-  const lineasValidas = lineas.filter(l => !l.aplica_a || l.aplica_a.length === 0 || l.aplica_a.some(a => dm.nombre.includes(a)));
+  // --- LÓGICA DE FILTRADO BLINDADA ---
+  const lineasValidas = lineas.filter(l => {
+    if (!l.aplica_a) return true; // Si está vacío, aplica a todos
+    // Si es un string, lo convertimos a array
+    const aplicaArray = Array.isArray(l.aplica_a) 
+      ? l.aplica_a 
+      : typeof l.aplica_a === 'string' 
+        ? l.aplica_a.replace(/[{}"']/g, '').split(',').map(s => s.trim())
+        : [];
+    
+    if (aplicaArray.length === 0 || aplicaArray.includes("TODOS")) return true;
+    
+    return aplicaArray.some(a => dm.nombre.toLowerCase().includes(a.toLowerCase()));
+  });
+
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
   const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0];
   const plazosDisponibles = lineaSel ? lineaSel.plazos.map(r => r[0]) : [];
@@ -563,100 +577,4 @@ export default function App() {
                     <h2 style={{ margin: 0, border: 'none', padding: 0 }}>Resumen</h2>
                     <button className="no-print"
                       onClick={() => setVerEnPesos(!verEnPesos)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--acc)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', padding: 0 }}
-                    >
-                      <FaExchangeAlt /> Ver en {verEnPesos ? 'USD' : 'ARS'}
-                    </button>
-                  </div>
-                  
-                  <div className="summary-details">
-                    <div className="row">
-                      <span>Precio Auto:</span> 
-                      <span>{verEnPesos ? f(total * tc) : nf(dm.precio)}</span>
-                    </div>
-                    {verEnPesos && esUsd && renderEquiv(dm.precio)}
-                    {!verEnPesos && !esUsd && renderEquiv(dm.precio)}
-
-                    {bonifEfectiva > 0 && (
-                      <>
-                        <div className="row">
-                          <span>Bonificación:</span> 
-                          <span>-{verEnPesos ? f(bonifEfectiva * tc) : nf(bonifEfectiva)}</span>
-                        </div>
-                        {verEnPesos && esUsd && renderEquiv(-bonifEfectiva)}
-                        {!verEnPesos && !esUsd && renderEquiv(-bonifEfectiva)}
-                      </>
-                    )}
-                    
-                    <div className="row">
-                      <span>FyF + Patent.:</span> 
-                      <span>{verEnPesos ? f((dm.fyf + (patenta === "con" ? dm.pat : 0)) * tc) : nf(dm.fyf + (patenta === "con" ? dm.pat : 0))}</span>
-                    </div>
-                    {verEnPesos && esUsd && renderEquiv(dm.fyf + (patenta === "con" ? dm.pat : 0))}
-                    {!verEnPesos && !esUsd && renderEquiv(dm.fyf + (patenta === "con" ? dm.pat : 0))}
-
-                    <div className="row total">
-                      <span>Total:</span> 
-                      <span>{verEnPesos ? f(total * tc) : nf(total)}</span>
-                    </div>
-                    {verEnPesos && esUsd && renderEquiv(total)}
-                    {!verEnPesos && !esUsd && renderEquiv(total)}
-
-                    <div className="divider"></div>
-                    
-                    <div className="row">
-                      <span>Anticipo:</span> 
-                      <span>{verEnPesos ? f(anticipoEnMoneda * tc) : nf(anticipoEnMoneda)}</span>
-                    </div>
-                    {verEnPesos && esUsd && renderEquiv(anticipoEnMoneda)}
-                    {!verEnPesos && !esUsd && renderEquiv(anticipoEnMoneda)}
-
-                    {checkUsado && (
-                      <>
-                        <div className="row">
-                          <span>Usado:</span> 
-                          <span>{verEnPesos ? f(usadoEnMoneda * tc) : nf(usadoEnMoneda)}</span>
-                        </div>
-                        {verEnPesos && esUsd && renderEquiv(usadoEnMoneda)}
-                        {!verEnPesos && !esUsd && renderEquiv(usadoEnMoneda)}
-                      </>
-                    )}
-                    {financiar && (
-                      <>
-                        <div className="row">
-                          <span>A Financiar:</span> 
-                          <span>{verEnPesos ? f(resumenFin?.aFinanciar || 0) : nf((resumenFin?.aFinanciar || 0) / tc)}</span>
-                        </div>
-                        {verEnPesos && esUsd && renderEquiv((resumenFin?.aFinanciar || 0) / tc)}
-                        {!verEnPesos && !esUsd && renderEquiv(resumenFin?.aFinanciar || 0)}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="summary-total-box">
-                    <span>Diferencia a abonar</span>
-                    <div className="cuota">
-                      {verEnPesos ? f(dif * tc) : nf(dif)}
-                    </div>
-                    {!verEnPesos && esUsd && <div className="conv-hint">≈ {f(dif * tc)}</div>}
-                    {!verEnPesos && !esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif / tc : 0)}</div>}
-                    {verEnPesos && esUsd && <div className="conv-hint">≈ {u(tc > 0 ? dif : 0)}</div>}
-                  </div>
-
-                  <div className="summary-actions no-print">
-                    <button className="btn-whatsapp" onClick={enviarWhatsApp}><FaWhatsapp /> Enviar por WhatsApp</button>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-outline" style={{ flex: 1 }} onClick={copiarMensaje}><FaCopy /> Copiar</button>
-                      <button className="btn-outline" style={{ flex: 1 }} onClick={descargarPDF}><FaFilePdf /> PDF</button>
-                    </div>
-                    <button className="btn-save" style={{ marginTop: '8px' }} onClick={guardarEnCRM}>Guardar Cotización</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--acc)',
