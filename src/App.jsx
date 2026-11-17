@@ -118,8 +118,23 @@ export default function App() {
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
   
-  // --- LÓGICA DE FILTRADO BLINDADA ---
-  const lineasValidas = lineas.filter(l => {
+  // --- AGRUPACIÓN Y FILTRADO EN EL FRONTEND ---
+  const lineasAgrupadas = {};
+  lineas.forEach(l => {
+    const nombre = l.nombre;
+    if (!lineasAgrupadas[nombre]) {
+      lineasAgrupadas[nombre] = {
+        nombre: nombre,
+        tipo: l.tipo,
+        uva: l.uva,
+        aplica_a: l.aplica_a,
+        plazos: []
+      };
+    }
+    lineasAgrupadas[nombre].plazos.push([l.plazo, l.tna, l.quebranto, l.tope]);
+  });
+
+  const lineasValidas = Object.values(lineasAgrupadas).filter(l => {
     if (!l.aplica_a) return true;
     const textoAplica = JSON.stringify(l.aplica_a).toLowerCase();
     if (textoAplica.includes("todos") || textoAplica === "[]" || textoAplica === '""') return true;
