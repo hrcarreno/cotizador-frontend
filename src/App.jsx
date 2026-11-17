@@ -133,7 +133,9 @@ export default function App() {
     }
     lineasAgrupadas[nombre].plazos.push([l.plazo, l.tna, l.quebranto, l.tope]);
   });
-
+// ESTO ES UN DEBUG. LO VAMOS A BORRAR DESPUÉS.
+console.log("LINEAS CRUDAS DE SUPABASE:", lineas);
+console.log("MODELO SELECCIONADO:", dm.nombre);
   const lineasValidas = Object.values(lineasAgrupadas).filter(l => {
     if (!l.aplica_a) return true;
     const textoAplica = JSON.stringify(l.aplica_a).toLowerCase();
