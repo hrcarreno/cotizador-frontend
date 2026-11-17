@@ -120,17 +120,11 @@ export default function App() {
   
   // --- LÓGICA DE FILTRADO BLINDADA ---
   const lineasValidas = lineas.filter(l => {
-    if (!l.aplica_a) return true; // Si está vacío, aplica a todos
-    // Si es un string, lo convertimos a array
-    const aplicaArray = Array.isArray(l.aplica_a) 
-      ? l.aplica_a 
-      : typeof l.aplica_a === 'string' 
-        ? l.aplica_a.replace(/[{}"']/g, '').split(',').map(s => s.trim())
-        : [];
-    
-    if (aplicaArray.length === 0 || aplicaArray.includes("TODOS")) return true;
-    
-    return aplicaArray.some(a => dm.nombre.toLowerCase().includes(a.toLowerCase()));
+    if (!l.aplica_a) return true;
+    const textoAplica = JSON.stringify(l.aplica_a).toLowerCase();
+    if (textoAplica.includes("todos") || textoAplica === "[]" || textoAplica === '""') return true;
+    const nombreBase = dm.nombre.split(' ').slice(0, 2).join(' ').toLowerCase();
+    return textoAplica.includes(nombreBase);
   });
 
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
