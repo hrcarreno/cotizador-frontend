@@ -118,24 +118,26 @@ export default function App() {
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
   
-  // --- AGRUPACIÓN Y FILTRADO EN EL FRONTEND ---
+  // --- AGRUPACIÓN Y FILTRADO BLINDADO ---
   const lineasAgrupadas = {};
-  lineas.forEach(l => {
-    const nombre = l.nombre;
-    if (!lineasAgrupadas[nombre]) {
-      lineasAgrupadas[nombre] = {
-        nombre: nombre,
-        tipo: l.tipo,
-        uva: l.uva,
-        aplica_a: l.aplica_a,
-        plazos: []
-      };
-    }
-    lineasAgrupadas[nombre].plazos.push([l.plazo, l.tna, l.quebranto, l.tope]);
-  });
-// ESTO ES UN DEBUG. LO VAMOS A BORRAR DESPUÉS.
-console.log("LINEAS CRUDAS DE SUPABASE:", lineas);
-console.log("MODELO SELECCIONADO:", dm.nombre);
+  
+  // Solo ejecutamos si lineas es un array válido
+  if (Array.isArray(lineas)) {
+    lineas.forEach(l => {
+      const nombre = l.nombre;
+      if (!lineasAgrupadas[nombre]) {
+        lineasAgrupadas[nombre] = {
+          nombre: nombre,
+          tipo: l.tipo,
+          uva: l.uva,
+          aplica_a: l.aplica_a,
+          plazos: []
+        };
+      }
+      lineasAgrupadas[nombre].plazos.push([l.plazo, l.tna, l.quebranto, l.tope]);
+    });
+  }
+
   const lineasValidas = Object.values(lineasAgrupadas).filter(l => {
     if (!l.aplica_a) return true;
     const textoAplica = JSON.stringify(l.aplica_a).toLowerCase();
@@ -143,6 +145,8 @@ console.log("MODELO SELECCIONADO:", dm.nombre);
     const nombreBase = dm.nombre.split(' ').slice(0, 2).join(' ').toLowerCase();
     return textoAplica.includes(nombreBase);
   });
+
+  // --- FIN DE AGRUPACIÓN ---
 
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
   const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0];
