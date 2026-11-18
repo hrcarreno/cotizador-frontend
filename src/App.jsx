@@ -121,7 +121,6 @@ export default function App() {
   // --- AGRUPACIÓN Y FILTRADO BLINDADO ---
   const lineasAgrupadas = {};
   
-  // Solo ejecutamos si lineas es un array válido
   if (Array.isArray(lineas)) {
     lineas.forEach(l => {
       const nombre = l.nombre;
@@ -146,19 +145,17 @@ export default function App() {
     return textoAplica.includes(nombreBase);
   });
 
-  // --- FIN DE AGRUPACIÓN ---
-
   const lineaIdxSeguro = Math.min(lineaIdx, Math.max(0, lineasValidas.length - 1));
-  const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0];
-  const plazosDisponibles = lineaSel ? lineaSel.plazos.map(r => r[0]) : [];
-  const plazoFinal = plazosDisponibles.includes(plazo) ? plazo : plazosDisponibles[0];
-  const plazoData = lineaSel ? (lineaSel.plazos.find(r => r[0] === plazoFinal) || lineaSel.plazos[0]) : null;
+  const lineaSel = lineasValidas[lineaIdxSeguro] || lineasValidas[0] || null;
+  const plazosDisponibles = lineaSel?.plazos?.map(r => r[0]) || [];
+  const plazoFinal = plazosDisponibles.includes(plazo) ? plazo : (plazosDisponibles[0] || 12);
+  const plazoData = lineaSel?.plazos?.find(r => r[0] === plazoFinal) || lineaSel?.plazos?.[0] || null;
 
   let mejores = [];
   if (financiar && dif > 0) {
     const difArs = esUsd ? dif * tc : dif;
     lineasValidas.forEach((l, i) => {
-      l.plazos.forEach(r => {
+      l.plazos?.forEach(r => {
         const tna = r[1];
         const quebranto = r[2] * 1.21;
         const gast = difArs * (quebranto / 100);
@@ -181,12 +178,12 @@ export default function App() {
     const tope = plazoData[3] || Infinity;
     
     if (difArs > tope) {
-      errorFinanciacion = `El monto a financiar (${f(difArs)}) supera el tope de la línea "${lineaSel.nombre}" para ${plazoFinal} meses. El tope máximo es de ${f(tope)}.`;
+      errorFinanciacion = `El monto a financiar (${f(difArs)}) supera el tope de la línea "${lineaSel?.nombre || ''}" para ${plazoFinal} meses. El tope máximo es de ${f(tope)}.`;
     } else {
       const quebranto = plazoData[2] * 1.21;
       const gasto = difArs * (quebranto / 100);
       const fr = frances(difArs, plazoData[1], plazoFinal);
-      resumenFin = { linea: lineaSel.nombre, plazo: plazoFinal, aFinanciar: difArs, gasto, cuota: fr.first, ultimaCuota: fr.last, totalCuotas: fr.sum, tope: plazoData[3] };
+      resumenFin = { linea: lineaSel?.nombre || '', plazo: plazoFinal, aFinanciar: difArs, gasto, cuota: fr.first, ultimaCuota: fr.last, totalCuotas: fr.sum, tope: plazoData[3] };
     }
   }
 
@@ -542,7 +539,7 @@ export default function App() {
 
                           <label>Plazo</label>
                           <div className="chips">
-                            {lineaSel.plazos.map(r => (
+                            {lineaSel?.plazos?.map(r => (
                               <button key={r[0]} className={plazoFinal === r[0] ? "chip active" : "chip"} onClick={() => setPlazo(r[0])}>{r[0]} meses</button>
                             ))}
                           </div>
