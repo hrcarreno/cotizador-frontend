@@ -118,7 +118,7 @@ export default function App() {
   const usadoEnMoneda = esUsd ? (monedaUsado === "usd" ? tasacion : (tc > 0 ? tasacion / tc : 0)) : (monedaUsado === "usd" ? tasacion * tc : tasacion);
   const dif = total - anticipoEnMoneda - (checkUsado ? usadoEnMoneda : 0);
   
-  // --- AGRUPACIÓN Y FILTRADO BLINDADO ---
+  // --- AGRUPACIÓN BLINDADA ---
   const lineasAgrupadas = {};
   
   if (Array.isArray(lineas)) {
